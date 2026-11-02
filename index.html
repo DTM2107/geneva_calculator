@@ -176,6 +176,13 @@ button.pill{cursor:pointer}
 .field:hover>label,.field:focus-within>label{color:var(--accent)}
 .sw.hi{background:rgba(70,240,192,.3);border-color:#46f0c0}
 @media (prefers-reduced-motion:reduce){.hl.on{animation:none}}
+@media (min-width:901px){
+  .bench{align-items:start}
+  .inputs,.stage{position:sticky;top:12px;max-height:calc(100vh - 24px);overflow-y:auto}
+  .inputs{scrollbar-gutter:stable}
+  .screen svg{max-height:max(280px,calc(100vh - 270px))}
+  .screen[data-view=both] #stage{max-height:max(240px,calc(100vh - 500px))}
+}
 </style>
 
 <div class="wrap">
