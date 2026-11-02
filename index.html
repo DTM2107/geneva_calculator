@@ -1,0 +1,744 @@
+<!doctype html><html><head><meta charset=utf8><meta name=viewport content="width=device-width,initial-scale=1,viewport-fit=cover"><style>:root{color-scheme:light;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}html{scroll-padding-top:env(safe-area-inset-top,0px)}body{margin:0;padding:0;font:14px -apple-system,BlinkMacSystemFont,sans-serif;background:#fff;color:#000}img{max-width:100%}[hidden]:not([hidden=until-found i]){display:none!important}</style></head><body>
+<title>Geneva Drive Calculator</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700&family=Barlow:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500;600&display=swap">
+<style>
+/* Layout: a bench. Inputs on the left, a live layout-blue drawing on the right, part sheets laid out underneath like the title block of a drawing sheet. */
+:root{
+  --bg:#e9edf1; --surface:#f8fafc; --ink:#0f1b27; --muted:#506477; --line:#cbd5df; --input:#ffffff;
+  --accent:#1b4f8c; --accent-ink:#ffffff; --accent-soft:#dbe7f5;
+  --ok:#1d7448; --ok-bg:#dcefe4; --bad:#b0261c; --bad-bg:#f7dcd8; --warn:#8a5a00; --warn-bg:#f5e8c9;
+  --blue:#173a63; --blue-grid:rgba(185,212,245,.13); --chalk:#e9f1fb; --chalk-dim:rgba(233,241,251,.5);
+  --steel:rgba(196,220,247,.17); --brass-line:#f2c25a; --brass-fill:rgba(242,194,90,.24);
+  --display:"Barlow Condensed","Arial Narrow",sans-serif;
+  --body:"Barlow","Helvetica Neue",Arial,sans-serif;
+  --mono:"IBM Plex Mono",ui-monospace,Menlo,Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#0b131c; --surface:#111d2b; --ink:#e5edf6; --muted:#93a7bb; --line:#233447; --input:#0b131c;
+    --accent:#6fb0ff; --accent-ink:#08121d; --accent-soft:#17304d;
+    --ok:#63d29c; --ok-bg:#12382a; --bad:#ff9288; --bad-bg:#431b18; --warn:#eab95a; --warn-bg:#3d2f10;
+    --blue:#0f2a49; color-scheme:dark;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#0b131c; --surface:#111d2b; --ink:#e5edf6; --muted:#93a7bb; --line:#233447; --input:#0b131c;
+  --accent:#6fb0ff; --accent-ink:#08121d; --accent-soft:#17304d;
+  --ok:#63d29c; --ok-bg:#12382a; --bad:#ff9288; --bad-bg:#431b18; --warn:#eab95a; --warn-bg:#3d2f10;
+  --blue:#0f2a49; color-scheme:dark;
+}
+*,*::before,*::after{box-sizing:border-box}
+body{
+  background:var(--bg); color:var(--ink); font:400 15px/1.5 var(--body);
+  padding-block:22px 56px;
+  padding-left:max(16px,env(safe-area-inset-left,0px));
+  padding-right:max(16px,env(safe-area-inset-right,0px));
+}
+.wrap{max-width:1240px;margin:0 auto}
+h1,h2,h3{margin:0;font-family:var(--display);text-wrap:balance}
+h1{font-weight:700;font-size:clamp(30px,4.4vw,44px);line-height:1;letter-spacing:.01em}
+.lede{margin:10px 0 0;max-width:64ch;color:var(--muted)}
+.top{margin-bottom:20px}
+button,input,select,textarea{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+.bench{display:grid;grid-template-columns:minmax(0,350px) minmax(0,1fr);gap:20px;align-items:start}
+@media (max-width:900px){.bench{grid-template-columns:minmax(0,1fr)}}
+.panel{background:var(--surface);border:1px solid var(--line);border-radius:10px;padding:16px;min-width:0}
+
+/* inputs */
+.inputs fieldset{border:0;margin:0 0 18px;padding:0;min-width:0}
+.inputs legend{padding:0 0 8px;font:600 13px/1 var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.fields{display:grid;gap:12px}
+.field label{display:flex;justify-content:space-between;gap:8px;font-weight:500;font-size:14px}
+.field .sym{font:400 12px var(--mono);color:var(--muted)}
+.hint{margin:2px 0 4px;font-size:12.5px;line-height:1.35;color:var(--muted)}
+.inp{display:flex;align-items:stretch;margin-top:4px;border:1px solid var(--line);border-radius:6px;background:var(--input)}
+.inp:focus-within{border-color:var(--accent);box-shadow:0 0 0 1px var(--accent)}
+.inp input{flex:1;min-width:0;border:0;background:transparent;padding:8px 10px;font:500 15px var(--mono);font-variant-numeric:tabular-nums;outline:none}
+.inp .unit{display:flex;align-items:center;padding:0 10px;font:400 12px var(--mono);color:var(--muted)}
+.stepper{display:flex;gap:6px;margin-top:4px}
+.stepper .inp{flex:1;margin-top:0}
+.stepper button{width:40px;border:1px solid var(--line);border-radius:6px;background:var(--input);cursor:pointer;font:600 18px/1 var(--body)}
+.stepper button:hover{border-color:var(--accent);color:var(--accent)}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.chip{min-width:36px;padding:5px 10px;border:1px solid var(--line);border-radius:6px;background:transparent;cursor:pointer;font:500 13px var(--mono)}
+.chip:hover{border-color:var(--accent)}
+.chip[aria-pressed="true"]{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.seg{display:flex;gap:0}
+.seg label{position:relative;flex:1;min-width:0}
+.seg input{position:absolute;opacity:0;inset:0;width:100%;height:100%;margin:0;cursor:pointer}
+.seg span{display:block;padding:8px 6px;text-align:center;font-size:13.5px;font-weight:500;border:1px solid var(--line);margin-left:-1px;background:var(--input)}
+.seg label:first-child span{border-radius:6px 0 0 6px;margin-left:0}
+.seg label:last-child span{border-radius:0 6px 6px 0}
+.seg input:checked + span{background:var(--accent);border-color:var(--accent);color:var(--accent-ink);position:relative}
+.seg input:focus-visible + span{outline:2px solid var(--accent);outline-offset:2px;position:relative}
+.unitrow{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:16px}
+.unitrow .seg{width:130px}
+.unitrow .lbl{font:600 13px/1 var(--body);letter-spacing:.1em;text-transform:uppercase;color:var(--muted)}
+.btn{padding:8px 14px;border:1px solid var(--line);border-radius:6px;background:var(--input);cursor:pointer;font-weight:500;font-size:14px}
+.btn:hover{border-color:var(--accent);color:var(--accent)}
+.btn.primary{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.btn.primary:hover{color:var(--accent-ink);filter:brightness(1.08)}
+
+/* stage */
+.stage{display:flex;flex-direction:column;gap:12px}
+.stage-head{display:flex;align-items:center;justify-content:space-between;gap:10px 16px;flex-wrap:wrap}
+.stage-head h2{font-size:24px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.badges{display:flex;gap:8px;flex-wrap:wrap}
+.screen{background:var(--blue);border-radius:8px;overflow:hidden;border:1px solid rgba(0,0,0,.3)}
+.screen svg{display:block;width:100%;height:auto;max-height:min(78vh,860px);margin:0 auto}
+.controls{display:flex;flex-wrap:wrap;gap:10px 18px;align-items:center}
+.controls .slider{flex:1 1 240px;display:flex;align-items:center;gap:10px;min-width:0}
+.controls .slider span{font-size:13.5px;font-weight:500;white-space:nowrap}
+.controls input[type=range]{flex:1;min-width:0;accent-color:var(--accent)}
+.controls output{font:500 13px var(--mono);min-width:54px;text-align:right}
+.controls select{padding:6px 8px;border:1px solid var(--line);border-radius:6px;background:var(--input)}
+.chk{display:flex;align-items:center;gap:6px;font-size:13.5px;cursor:pointer}
+.chk input{accent-color:var(--accent);width:16px;height:16px;margin:0}
+.legend{display:flex;flex-wrap:wrap;gap:6px 18px;margin:0;padding:0;list-style:none;font-size:13px;color:var(--muted)}
+.legend li{display:flex;align-items:center;gap:7px}
+.sw{width:16px;height:12px;border-radius:2px;border:1.5px solid}
+.sw.wheel{background:rgba(120,160,210,.3);border-color:var(--accent)}
+.sw.disc{background:rgba(242,194,90,.35);border-color:#c8921a}
+.sw.pin{width:12px;border-radius:50%;background:#e2a92f;border-color:#a8760f}
+.sw.plate{background:transparent;border-style:dashed;border-color:#c8921a}
+.pill{display:inline-flex;align-items:center;gap:6px;padding:3px 10px;border-radius:999px;border:0;font:600 12px/1.4 var(--body);letter-spacing:.07em;text-transform:uppercase;background:var(--accent-soft);color:var(--accent)}
+.pill.ok{background:var(--ok-bg);color:var(--ok)}
+.pill.bad{background:var(--bad-bg);color:var(--bad)}
+.pill.warn{background:var(--warn-bg);color:var(--warn)}
+button.pill{cursor:pointer}
+
+/* svg drawing */
+.s-wheel{fill:var(--steel);stroke:var(--chalk);stroke-width:1.6px;vector-effect:non-scaling-stroke;stroke-linejoin:round}
+.s-disc{fill:var(--brass-fill);stroke:var(--brass-line);stroke-width:1.6px;vector-effect:non-scaling-stroke;stroke-linejoin:round}
+.s-pin{fill:var(--brass-line);stroke:var(--blue);stroke-width:1px;vector-effect:non-scaling-stroke}
+.s-plate{fill:none;stroke:var(--brass-line);stroke-opacity:.55;stroke-width:1.1px;stroke-dasharray:6 4;vector-effect:non-scaling-stroke}
+.s-crank{stroke:var(--brass-line);stroke-opacity:.7;stroke-width:1px;stroke-dasharray:4 3;vector-effect:non-scaling-stroke}
+.s-cons{fill:none;stroke:var(--chalk-dim);stroke-width:1px;stroke-dasharray:6 4;vector-effect:non-scaling-stroke}
+.s-cl{fill:none;stroke:var(--chalk-dim);stroke-width:.8px;stroke-dasharray:14 3 2 3;vector-effect:non-scaling-stroke}
+.s-dim{fill:none;stroke:var(--chalk);stroke-width:1px;vector-effect:non-scaling-stroke}
+.s-ext{fill:none;stroke:var(--chalk-dim);stroke-width:.8px;stroke-dasharray:3 3;vector-effect:non-scaling-stroke}
+.s-text{fill:var(--chalk);font-family:var(--mono);font-weight:500}
+.s-mark{fill:var(--brass-line)}
+
+/* results */
+.results{margin-top:30px}
+.results-head{display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-bottom:16px}
+.results-head h2{font-size:28px;font-weight:600;letter-spacing:.04em;text-transform:uppercase}
+.sheets{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,290px),1fr));gap:26px 34px}
+.sheet{min-width:0}
+.sheet h3{font-size:20px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;border-top:3px solid var(--accent);padding-top:10px;margin-bottom:4px}
+.rows{margin:0}
+.row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 16px;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--line)}
+.row dt{font-weight:500;min-width:0}
+.row dt small{display:block;margin-top:2px;font:400 12px/1.35 var(--mono);color:var(--muted)}
+.row dd{margin:0;font:500 16px var(--mono);font-variant-numeric:tabular-nums;text-align:right;white-space:nowrap}
+.row dd i{margin-left:5px;font:400 12px var(--mono);font-style:normal;color:var(--muted)}
+.checks-wrap{margin-top:30px}
+.checks-wrap h3{font-size:20px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;border-top:3px solid var(--accent);padding-top:10px;margin-bottom:8px}
+.checks{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,360px),1fr));gap:0 34px}
+.checks li{display:grid;grid-template-columns:auto minmax(0,1fr);gap:4px 12px;align-items:start;padding:10px 0;border-bottom:1px solid var(--line)}
+.checks .what{font-weight:500}
+.checks .detail{grid-column:2;font:400 12.5px/1.4 var(--mono);color:var(--muted)}
+.problems{margin:0 0 18px;padding:12px 16px;border-radius:8px;background:var(--bad-bg);color:var(--bad)}
+.problems ul{margin:6px 0 0;padding-left:20px}
+.problems[hidden]{display:none}
+.stale{opacity:.4}
+.export{margin-top:30px}
+.export h3{font-size:20px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;border-top:3px solid var(--accent);padding-top:10px;margin-bottom:8px}
+.export p{margin:0 0 12px;color:var(--muted);max-width:70ch}
+.export .btns{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.export textarea{display:block;width:100%;margin-top:12px;min-height:130px;padding:10px;border:1px solid var(--line);border-radius:6px;background:var(--input);font:400 12px/1.45 var(--mono);resize:vertical}
+.export .msg{font-size:13.5px;color:var(--muted)}
+.notes{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-size:13.5px;color:var(--muted);max-width:80ch}
+.notes b{color:var(--ink);font-weight:600}
+@media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+</style>
+
+<div class="wrap">
+  <header class="top">
+    <h1>Geneva Drive Calculator</h1>
+    <p class="lede">External Geneva drive with one pin and a locking disc, as in the classic encyclopedia drawing. Set the slot count and one size, and every part dimension follows, with a live drawing to check the fit.</p>
+  </header>
+
+  <div class="bench">
+    <aside class="panel inputs" aria-label="Inputs">
+      <div class="unitrow">
+        <span class="lbl">Units</span>
+        <div class="seg" role="radiogroup" aria-label="Units">
+          <label><input type="radio" name="unit" value="mm" checked><span>mm</span></label>
+          <label><input type="radio" name="unit" value="in"><span>in</span></label>
+        </div>
+      </div>
+
+      <fieldset>
+        <legend>Driven wheel</legend>
+        <div class="field">
+          <label for="n"><span>Number of slots</span><span class="sym">n</span></label>
+          <div class="stepper">
+            <button type="button" id="nDown" aria-label="Fewer slots">&minus;</button>
+            <div class="inp"><input id="n" type="number" inputmode="numeric" min="3" max="60" step="1" value="4"></div>
+            <button type="button" id="nUp" aria-label="More slots">+</button>
+          </div>
+          <div class="chips" id="chips" role="group" aria-label="Common slot counts"></div>
+        </div>
+      </fieldset>
+
+      <fieldset>
+        <legend>Size by</legend>
+        <div class="fields">
+          <div class="seg" role="radiogroup" aria-label="Size by">
+            <label><input type="radio" name="mode" value="C" checked><span>Centre</span></label>
+            <label><input type="radio" name="mode" value="a"><span>Crank</span></label>
+            <label><input type="radio" name="mode" value="D"><span>Wheel &Oslash;</span></label>
+          </div>
+          <div class="field">
+            <label for="size"><span id="sizeLabel">Centre distance</span><span class="sym" id="sizeSym">C</span></label>
+            <div class="inp"><input id="size" type="number" inputmode="decimal" step="any" min="0" value="60"><span class="unit" data-len="1">mm</span></div>
+          </div>
+        </div>
+      </fieldset>
+
+      <div id="groups"></div>
+
+      <button type="button" class="btn" id="reset">Reset to defaults</button>
+    </aside>
+
+    <section class="panel stage" aria-label="Live drawing">
+      <div class="stage-head">
+        <h2>Live layout</h2>
+        <div class="badges">
+          <span class="pill" id="state">Locked</span>
+          <button type="button" class="pill ok" id="health">All checks pass</button>
+        </div>
+      </div>
+      <div class="screen">
+        <svg id="stage" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Animated Geneva drive: a driver with a pin and lock disc indexing a slotted wheel">
+          <defs>
+            <pattern id="grid" patternUnits="userSpaceOnUse" width="10" height="10"><path id="gridPath" d="M10 0H0V10" fill="none" stroke="var(--blue-grid)"/></pattern>
+            <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 1L10 5L0 9z" fill="#e9f1fb"/></marker>
+          </defs>
+          <rect id="gridRect" fill="url(#grid)"/>
+          <g id="cons">
+            <circle id="tipCircle" class="s-cons" cx="0" cy="0"/>
+            <circle id="orbit" class="s-cons"/>
+            <line id="clV" class="s-cl"/>
+            <line id="clH1" class="s-cl"/>
+            <line id="clH2" class="s-cl"/>
+          </g>
+          <g id="driverBack"><circle id="plate" class="s-plate"/></g>
+          <g id="wheel">
+            <path id="wheelPath" class="s-wheel" fill-rule="evenodd"/>
+            <circle id="mark" class="s-mark"/>
+          </g>
+          <g id="driver">
+            <path id="discPath" class="s-disc" fill-rule="evenodd"/>
+            <line id="crank" class="s-crank" x1="0" y1="0" x2="0"/>
+            <circle id="pin" class="s-pin" cx="0"/>
+          </g>
+          <g id="dims"></g>
+        </svg>
+      </div>
+      <div class="controls">
+        <button type="button" class="btn primary" id="play" aria-pressed="true" style="min-width:84px">Pause</button>
+        <label class="slider"><span>Crank angle</span><input type="range" id="ang" min="-180" max="180" step="0.5" value="0" aria-label="Crank angle"><output id="angOut" for="ang">0&deg;</output></label>
+        <label class="chk">Speed
+          <select id="spd" aria-label="Playback speed">
+            <option value="0.25">0.25&times;</option>
+            <option value="0.5">0.5&times;</option>
+            <option value="1" selected>1&times;</option>
+            <option value="2">2&times;</option>
+          </select>
+        </label>
+        <label class="chk"><input type="checkbox" id="tDims" checked> Dimensions</label>
+        <label class="chk"><input type="checkbox" id="tCons" checked> Construction lines</label>
+      </div>
+      <ul class="legend">
+        <li><span class="sw wheel"></span>Driven wheel</li>
+        <li><span class="sw disc"></span>Lock disc</li>
+        <li><span class="sw pin"></span>Pin</li>
+        <li><span class="sw plate"></span>Driver plate (sits below)</li>
+      </ul>
+    </section>
+  </div>
+
+  <section class="results" id="results" aria-label="Results">
+    <div class="results-head"><h2>Part sheet</h2><span class="pill" id="unitTag">mm</span></div>
+    <div class="problems" id="problems" role="status" hidden></div>
+    <div id="out"></div>
+  </section>
+
+  <section class="export" aria-label="Export">
+    <h3>Take it to CAD or the laser</h3>
+    <p>Copy the outlines as an SVG at true size in your chosen unit. It holds the wheel, the lock disc and the driver plate with its pin hole. Arcs are drawn as short line segments.</p>
+    <div class="btns">
+      <button type="button" class="btn primary" id="cpSvg">Copy outline SVG</button>
+      <button type="button" class="btn" id="cpTxt">Copy dimensions</button>
+      <span class="msg" id="cpMsg" role="status"></span>
+    </div>
+    <textarea id="cpBox" readonly hidden aria-label="Exported text"></textarea>
+  </section>
+
+  <div class="notes">
+    <b>How it is sized.</b> Crank radius a = C&middot;sin(&pi;/n). The pin first touches a slot at distance b = C&middot;cos(&pi;/n) from the wheel centre. The wheel rim sits a margin m beyond b, and the lock disc and notch are sized so the disc clears the wheel tips exactly when the pin enters and leaves. Values are theoretical, so round to what your process can hold.
+  </div>
+</div>
+
+<script>
+(function(){
+'use strict';
+var TAU=Math.PI*2, RAD=Math.PI/180;
+function $(id){return document.getElementById(id);}
+
+// ==CALC-START==
+function calc(i){
+  var pr=[];
+  function need(k,label,min,strict){
+    var v=i[k];
+    if(!isFinite(v)) pr.push('Enter a number for '+label+'.');
+    else if(strict? v<=min : v<min) pr.push(label.charAt(0).toUpperCase()+label.slice(1)+' must be '+(strict?'greater than ':'at least ')+min+'.');
+  }
+  if(!(Number.isInteger(i.n)&&i.n>=3&&i.n<=60)) pr.push('Slot count must be a whole number from 3 to 60.');
+  need('size','the size',0,true); need('d','pin diameter',0,true); need('c','pin-to-slot clearance',0);
+  need('cl','lock-disc clearance',0); need('cb','slot-bottom clearance',0); if(!i.auto) need('m','rim margin',0);
+  need('b2','wheel bore',0); need('b1','driver bore',0); need('T','thickness',0,true);
+  need('mw','minimum wall',0); need('rpm','driver speed',0,true);
+  if(pr.length) return {pr:pr};
+  var n=i.n, p=Math.PI/n, sp=Math.sin(p), cp=Math.cos(p);
+  var w=i.d+2*i.c, C;
+  if(i.auto){
+    var mm=2;
+    for(var it=0;it<40;it++){
+      var Cx=i.mode==='C'?i.size:(i.mode==='a'?i.size/sp:(i.size/2-mm)/cp);
+      if(!(Cx>0)) break;
+      var ax=Cx*sp, bx=Cx*cp, em=Math.sqrt(Math.max(0,2*ax*i.c-i.c*i.c));
+      mm=0.5*(Math.sqrt((bx+em)*(bx+em)+w*w/4)-bx);
+    }
+    i=Object.assign({},i,{m:mm});
+  }
+  if(i.mode==='C') C=i.size; else if(i.mode==='a') C=i.size/sp; else C=(i.size/2-i.m)/cp;
+  if(!(C>0)){ pr.push('The wheel diameter is too small for this rim margin.'); return {pr:pr}; }
+  var a=C*sp, b=C*cp, Rw=b+i.m, Rwp=Rw+i.cl;
+  var t=Math.sqrt(Rwp*Rwp-b*b), Rl=a-t, Rc=Rl+i.cl;
+  var ri=C-a-i.d/2-i.cb, rc=ri+w/2, beta=Math.PI/2-p;
+  if(Rl<=0) pr.push('The lock disc radius is not positive. Reduce the rim margin or the lock-disc clearance.');
+  if(ri<=0) pr.push('The slot bottom reaches the wheel centre. Use a larger size or a smaller pin.');
+  if(w/2>=Rw) pr.push('The slot is wider than the wheel.');
+  if(pr.length) return {pr:pr};
+  var cosT=(Rw*Rw+C*C-Rc*Rc)/(2*Rw*C);
+  if(Math.abs(cosT)>1){ pr.push('The lock cut does not meet the wheel rim. Adjust the clearances.'); return {pr:pr}; }
+  var thc=Math.acos(cosT), delta=Math.asin(w/(2*Rw));
+  var land=(p-thc-delta);
+  if(land<=0){ pr.push('The land between each lock cut and slot has no width. Increase the rim margin or use a smaller pin.'); return {pr:pr}; }
+  var Rp=a+i.d/2+i.mw, lam=sp;
+  var vmax=lam/(1-lam), amax=0, x, f;
+  for(var k=0;k<=1000;k++){
+    x=beta*k/1000;
+    f=Math.abs(lam*(1-lam*lam)*Math.sin(x)/Math.pow(1-2*lam*Math.cos(x)+lam*lam,2));
+    if(f>amax) amax=f;
+  }
+  var w1=i.rpm*TAU/60, cyc=60/i.rpm, eng=180-360/n, tIdx=cyc*eng/360;
+  return {
+    pr:[], inp:i, n:n, p:p, C:C, a:a, b:b, w:w, Rw:Rw, Rwp:Rwp, t:t, Rl:Rl, Rc:Rc, ri:ri, rc:rc,
+    beta:beta, thc:thc, delta:delta, land:land, Rp:Rp, lam:lam, vmax:vmax, amax:amax, aEntry:Math.tan(p),
+    eng:eng, dwell:180+360/n, frac:(n-2)/(2*n), w1:w1, cyc:cyc, tIdx:tIdx, tDwell:cyc-tIdx
+  };
+}
+function wheelPoints(g){
+  var out=[], n=g.n, p=g.p, Rw=g.Rw, C=g.C, Rc=g.Rc, thc=g.thc, w=g.w, delta=g.delta;
+  function P(r,al){return [r*Math.sin(al), r*Math.cos(al)];}
+  var stepA=Math.PI/360;
+  function land(a0,a1){var N=Math.max(1,Math.ceil((a1-a0)/stepA)); for(var k=0;k<=N;k++) out.push(P(Rw,a0+(a1-a0)*k/N));}
+  var xT=Math.sqrt(Rw*Rw-w*w/4), rcen=g.ri+w/2;
+  for(var k=0;k<n;k++){
+    var ck=TAU*k/n, sk=ck+p;
+    var es=[Math.sin(sk),Math.cos(sk)], ts=[Math.cos(sk),-Math.sin(sk)];
+    var N=Math.max(10,Math.ceil(2*thc/(Math.PI/90)));
+    for(var j=0;j<=N;j++){
+      var q=-thc+2*thc*j/N;
+      var r=C*Math.cos(q)-Math.sqrt(Math.max(0,Rc*Rc-C*C*Math.sin(q)*Math.sin(q)));
+      out.push(P(r,ck+q));
+    }
+    land(ck+thc, sk-delta);
+    out.push([rcen*es[0]-(w/2)*ts[0], rcen*es[1]-(w/2)*ts[1]]);
+    for(var u=1;u<=18;u++){
+      var uu=Math.PI*u/18, cu=Math.cos(uu), su=Math.sin(uu);
+      out.push([rcen*es[0]+(w/2)*(-cu*ts[0]-su*es[0]), rcen*es[1]+(w/2)*(-cu*ts[1]-su*es[1])]);
+    }
+    out.push([xT*es[0]+(w/2)*ts[0], xT*es[1]+(w/2)*ts[1]]);
+    land(sk+delta, ck+TAU/n-thc);
+  }
+  return out;
+}
+function discPoints(g){
+  var out=[], beta=g.beta, Rl=g.Rl, C=g.C, Rwp=g.Rwp;
+  function P(r,f){return [r*Math.sin(f), -r*Math.cos(f)];}
+  var N1=Math.max(8,Math.ceil((TAU-2*beta)/RAD));
+  for(var k=0;k<=N1;k++) out.push(P(Rl,beta+(TAU-2*beta)*k/N1));
+  var N2=Math.max(12,Math.ceil(2*beta/RAD));
+  for(var j=0;j<=N2;j++){
+    var f=-beta+2*beta*j/N2;
+    var r=C*Math.cos(f)-Math.sqrt(Math.max(0,Rwp*Rwp-C*C*Math.sin(f)*Math.sin(f)));
+    out.push(P(r,f));
+  }
+  return out;
+}
+function wheelAngle(g,phiDeg){
+  var phi=phiDeg*RAD, m=Math.floor((phi+Math.PI)/TAU), f=phi-m*TAU, ph;
+  if(f<-g.beta) ph=0; else if(f>g.beta) ph=2*g.p; else ph=Math.atan2(g.a*Math.sin(f), g.C-g.a*Math.cos(f))+g.p;
+  return m*2*g.p+ph;
+}
+function pathD(pts){
+  var s='M'+pts.map(function(q){return q[0].toFixed(3)+' '+q[1].toFixed(3);}).join('L')+'Z';
+  return s;
+}
+function circleD(r,cx,cy){
+  cx=cx||0; cy=cy||0;
+  return 'M'+(cx+r).toFixed(3)+' '+cy.toFixed(3)+'A'+r.toFixed(3)+' '+r.toFixed(3)+' 0 1 0 '+(cx-r).toFixed(3)+' '+cy.toFixed(3)+'A'+r.toFixed(3)+' '+r.toFixed(3)+' 0 1 0 '+(cx+r).toFixed(3)+' '+cy.toFixed(3)+'Z';
+}
+// ==CALC-END==
+
+/* ---------- state and inputs ---------- */
+var DEFAULTS={n:4,size:60,d:6,c:0.3,cl:0.3,cb:1,m:3,b2:8,b1:8,T:6,mw:2,rpm:30};
+var GROUPS=[
+  {title:'Pin and clearances',fields:[
+    {id:'d',label:'Pin diameter',sym:'d',len:1},
+    {id:'c',label:'Pin-to-slot clearance',sym:'c',len:1,hint:'Per side. Slot width = d + 2c.'},
+    {id:'cl',label:'Lock-disc clearance',sym:'cl',len:1,hint:'Radial gap between the lock disc and the wheel cuts.'},
+    {id:'cb',label:'Slot-bottom clearance',sym:'cb',len:1,hint:'Gap between pin and slot bottom at closest approach.'},
+    {id:'m',label:'Rim margin',sym:'m',len:1,hint:'Wheel rim beyond the pin-entry radius. More margin gives wider lands. Less margin lets the pin enter more easily.'}
+  ]},
+  {title:'Shafts and stock',fields:[
+    {id:'b2',label:'Wheel bore diameter',sym:'',len:1},
+    {id:'b1',label:'Driver bore diameter',sym:'',len:1},
+    {id:'T',label:'Wheel thickness',sym:'T',len:1},
+    {id:'mw',label:'Minimum wall',sym:'',len:1,hint:'Smallest web you will allow, used by the checks.'}
+  ]},
+  {title:'Speed',fields:[{id:'rpm',label:'Driver speed',sym:'',len:0,unit:'rpm'}]}
+];
+var S={unit:'mm',mode:'C'}, G=null, view=null, phi=NaN, playing=true, speed=1, raf=0, lastTs=0;
+var reduced=false;
+try{reduced=window.matchMedia('(prefers-reduced-motion: reduce)').matches;}catch(e){}
+if(reduced) playing=false;
+
+function buildGroups(){
+  var h='';
+  GROUPS.forEach(function(gr){
+    h+='<fieldset><legend>'+gr.title+'</legend><div class="fields">';
+    gr.fields.forEach(function(f){
+      h+='<div class="field"><label for="'+f.id+'"><span>'+f.label+'</span><span class="sym">'+(f.sym||'')+'</span></label>'+
+        (f.hint?'<p class="hint" id="h_'+f.id+'">'+f.hint+'</p>':'')+
+        (f.id==='m'?'<label class="chk" style="margin:2px 0 4px"><input type="checkbox" id="autoM" checked> Auto, half the entry limit</label>':'')+
+        '<div class="inp"><input id="'+f.id+'" type="number" inputmode="decimal" step="any" min="0" value="'+DEFAULTS[f.id]+'"'+(f.hint?' aria-describedby="h_'+f.id+'"':'')+'>'+
+        '<span class="unit" data-len="'+(f.len?1:0)+'">'+(f.len?'mm':f.unit)+'</span></div></div>';
+    });
+    h+='</div></fieldset>';
+  });
+  $('groups').innerHTML=h;
+  var ch='';[3,4,5,6,8,12].forEach(function(v){ch+='<button type="button" class="chip" data-n="'+v+'" aria-pressed="false">'+v+'</button>';});
+  $('chips').innerHTML=ch;
+}
+var LENFIELDS=['size','d','c','cl','cb','m','b2','b1','T','mw'];
+function num(id){return parseFloat($(id).value);}
+function readInputs(){
+  return {n:num('n'),mode:S.mode,unit:S.unit,size:num('size'),d:num('d'),c:num('c'),cl:num('cl'),cb:num('cb'),m:num('m'),
+    b2:num('b2'),b1:num('b1'),T:num('T'),mw:num('mw'),rpm:num('rpm'),auto:$('autoM').checked};
+}
+function L(x){return x.toFixed(S.unit==='mm'?2:3);}
+function A(x){return (x/RAD).toFixed(1)+'°';}
+function setVal(id,v){$(id).value=String(parseFloat(v.toFixed(4)));}
+function save(){
+  try{
+    var o={unit:S.unit,mode:S.mode};
+    ['n','rpm'].concat(LENFIELDS).forEach(function(k){o[k]=$(k).value;});
+    o.auto=$('autoM').checked;
+    localStorage.setItem('geneva-calc-v1',JSON.stringify(o));
+  }catch(e){}
+}
+function load(){
+  try{
+    var o=JSON.parse(localStorage.getItem('geneva-calc-v1')||'null');
+    if(!o) return;
+    if(o.unit==='in'||o.unit==='mm') S.unit=o.unit;
+    if(o.mode==='C'||o.mode==='a'||o.mode==='D') S.mode=o.mode;
+    ['n','rpm'].concat(LENFIELDS).forEach(function(k){ if(o[k]!==undefined && o[k]!==null) $(k).value=o[k]; });
+    if(typeof o.auto==='boolean') $('autoM').checked=o.auto;
+  }catch(e){}
+}
+function syncUnitUI(){
+  document.querySelectorAll('input[name=unit]').forEach(function(r){r.checked=(r.value===S.unit);});
+  document.querySelectorAll('input[name=mode]').forEach(function(r){r.checked=(r.value===S.mode);});
+  document.querySelectorAll('.unit[data-len="1"]').forEach(function(u){u.textContent=S.unit;});
+  $('unitTag').textContent=S.unit==='mm'?'Millimetres':'Inches';
+  var lab={C:['Centre distance','C'],a:['Crank radius','a'],D:['Wheel outer diameter','Ø']}[S.mode];
+  $('sizeLabel').textContent=lab[0]; $('sizeSym').textContent=lab[1];
+}
+function syncChips(){
+  var n=num('n');
+  document.querySelectorAll('.chip').forEach(function(c){c.setAttribute('aria-pressed',String(parseInt(c.dataset.n,10)===n));});
+}
+
+/* ---------- drawing ---------- */
+function niceStep(span){
+  var raw=span/9, e=Math.pow(10,Math.floor(Math.log(raw)/Math.LN10)), m=raw/e;
+  return (m<2?1:m<5?2:5)*e;
+}
+function setView(g){
+  var Rmax=Math.max(g.Rw,g.Rp), pad=0.07*(g.Rw+g.C+g.Rp);
+  view={left:-Rmax-pad, right:Rmax+pad*3.6, top:-g.Rw-pad*2.1, bottom:g.C+g.Rp+pad, pad:pad, Rmax:Rmax};
+  view.w=view.right-view.left; view.h=view.bottom-view.top;
+  $('stage').setAttribute('viewBox',view.left.toFixed(3)+' '+view.top.toFixed(3)+' '+view.w.toFixed(3)+' '+view.h.toFixed(3));
+  var gr=$('gridRect'); gr.setAttribute('x',view.left); gr.setAttribute('y',view.top); gr.setAttribute('width',view.w); gr.setAttribute('height',view.h);
+  var st=niceStep(Math.max(view.w,view.h)), pat=$('grid');
+  pat.setAttribute('width',st); pat.setAttribute('height',st);
+  var gp=$('gridPath'); gp.setAttribute('d','M'+st+' 0H0V'+st); gp.setAttribute('stroke-width',(view.w*0.0013).toFixed(4));
+}
+function setGeometry(g){
+  var i=g.inp;
+  $('wheelPath').setAttribute('d',pathD(wheelPoints(g))+(i.b2>0?circleD(i.b2/2):''));
+  $('discPath').setAttribute('d',pathD(discPoints(g))+(i.b1>0?circleD(i.b1/2):''));
+  $('pin').setAttribute('cy',(-g.a).toFixed(3)); $('pin').setAttribute('r',(i.d/2).toFixed(3));
+  $('crank').setAttribute('y2',(-g.a).toFixed(3));
+  $('plate').setAttribute('r',g.Rp.toFixed(3)); $('plate').setAttribute('cx',0); $('plate').setAttribute('cy',g.C);
+  $('tipCircle').setAttribute('r',g.Rw.toFixed(3));
+  var orb=$('orbit'); orb.setAttribute('r',g.a.toFixed(3)); orb.setAttribute('cx',0); orb.setAttribute('cy',g.C);
+  var v=$('clV'); v.setAttribute('x1',0); v.setAttribute('x2',0); v.setAttribute('y1',view.top+view.pad*0.5); v.setAttribute('y2',view.bottom-view.pad*0.3);
+  var h1=$('clH1'); h1.setAttribute('x1',-g.Rw*1.08); h1.setAttribute('x2',g.Rw*1.08); h1.setAttribute('y1',0); h1.setAttribute('y2',0);
+  var h2=$('clH2'); h2.setAttribute('x1',-g.Rp*1.08); h2.setAttribute('x2',g.Rp*1.08); h2.setAttribute('y1',g.C); h2.setAttribute('y2',g.C);
+  var mk=$('mark'), rm=(i.b2/2+g.ri)/2;
+  if(g.ri>i.b2/2+g.Rw*0.06){
+    mk.removeAttribute('hidden');
+    mk.setAttribute('r',(g.Rw*0.014).toFixed(3));
+    mk.setAttribute('cx',(rm*Math.sin(g.p)).toFixed(3)); mk.setAttribute('cy',(rm*Math.cos(g.p)).toFixed(3));
+  } else mk.setAttribute('hidden','');
+}
+function drawDims(){
+  var el=$('dims');
+  if(!G||!view){el.innerHTML='';return;}
+  var px=$('stage').getBoundingClientRect().width||640, k=view.w/px, fs=11.5*k;
+  var Rw=G.Rw, C=G.C, Rp=G.Rp, Xd=view.Rmax+view.pad*1.1, Yd=-Rw-view.pad*1.2;
+  var s='';
+  s+='<line class="s-ext" x1="'+(Rw+fs*0.4)+'" y1="0" x2="'+(Xd+fs*0.6)+'" y2="0"/>';
+  s+='<line class="s-ext" x1="'+(Rp+fs*0.4)+'" y1="'+C+'" x2="'+(Xd+fs*0.6)+'" y2="'+C+'"/>';
+  s+='<line class="s-dim" x1="'+Xd+'" y1="0" x2="'+Xd+'" y2="'+C+'" marker-start="url(#arr)" marker-end="url(#arr)"/>';
+  s+='<text class="s-text" x="'+(Xd+fs*0.7)+'" y="'+(C/2)+'" font-size="'+fs+'" dominant-baseline="middle">C '+L(C)+'</text>';
+  s+='<line class="s-ext" x1="'+(-Rw)+'" y1="'+(-fs*0.4)+'" x2="'+(-Rw)+'" y2="'+(Yd-fs*0.6)+'"/>';
+  s+='<line class="s-ext" x1="'+Rw+'" y1="'+(-fs*0.4)+'" x2="'+Rw+'" y2="'+(Yd-fs*0.6)+'"/>';
+  s+='<line class="s-dim" x1="'+(-Rw)+'" y1="'+Yd+'" x2="'+Rw+'" y2="'+Yd+'" marker-start="url(#arr)" marker-end="url(#arr)"/>';
+  s+='<text class="s-text" x="0" y="'+(Yd-fs*0.6)+'" font-size="'+fs+'" text-anchor="middle">Ø '+L(2*Rw)+'</text>';
+  el.innerHTML=s;
+}
+function frame(){
+  if(!G) return;
+  var wrapped=((phi+180)%360+360)%360-180;
+  var th=wheelAngle(G,phi);
+  $('wheel').setAttribute('transform','rotate('+(-th/RAD).toFixed(3)+')');
+  $('driver').setAttribute('transform','translate(0 '+G.C+') rotate('+wrapped.toFixed(3)+')');
+  var eng=Math.abs(wrapped)<=G.beta/RAD+1e-9;
+  var st=$('state');
+  st.textContent=eng?'Indexing':'Locked';
+  st.className='pill'+(eng?' warn':'');
+  var a=$('ang'); if(document.activeElement!==a) a.value=wrapped.toFixed(1);
+  $('angOut').textContent=wrapped.toFixed(1)+'°';
+}
+function tick(ts){
+  if(!playing){raf=0;return;}
+  if(lastTs) phi+=60*speed*Math.min(0.1,(ts-lastTs)/1000);
+  lastTs=ts; frame(); raf=requestAnimationFrame(tick);
+}
+function setPlaying(on){
+  playing=on; var b=$('play');
+  b.textContent=on?'Pause':'Play'; b.setAttribute('aria-pressed',String(on));
+  if(on&&!raf){lastTs=0;raf=requestAnimationFrame(tick);}
+}
+
+/* ---------- results ---------- */
+function R(l,f,v,u){return {l:l,f:f,v:v,u:u};}
+function rowsHTML(rows){
+  return '<dl class="rows">'+rows.map(function(r){
+    return '<div class="row"><dt>'+r.l+(r.f?'<small>'+r.f+'</small>':'')+'</dt><dd>'+r.v+(r.u?'<i>'+r.u+'</i>':'')+'</dd></div>';
+  }).join('')+'</dl>';
+}
+function sheets(g){
+  var i=g.inp, u=S.unit, one=u==='mm'?1:1/25.4;
+  var wheel=[
+    R('Outer diameter','2(C cos(π/n) + m)',L(2*g.Rw),u),
+    R('Number of slots','n',String(g.n),''),
+    R('Slot width','d + 2c',L(g.w),u),
+    R('Slot length, rim to bottom','R<sub>w</sub> − r<sub>i</sub>',L(g.Rw-g.ri),u),
+    R('Slot bottom circle diameter','2r<sub>i</sub> = 2(C − a − d/2 − cb)',L(2*g.ri),u),
+    R('Lock-cut radius','R<sub>l</sub> + cl',L(g.Rc),u),
+    R('Smallest wheel radius, at lock cut','C − lock-cut radius',L(g.C-g.Rc),u),
+    R('Bore diameter','',L(i.b2),u),
+    R('Thickness','',L(i.T),u)
+  ];
+  var driver=[
+    R('Crank radius, pin centre','a = C sin(π/n)',L(g.a),u),
+    R('Pin diameter','',L(i.d),u),
+    R('Pin length above plate','T + 1 mm',L(i.T+one),u),
+    R('Lock disc diameter','2(a − √(R<sub>w</sub>′² − b²))',L(2*g.Rl),u),
+    R('Notch floor radius','C − R<sub>w</sub> − cl',L(g.C-g.Rwp),u),
+    R('Notch angle','180° − 360°/n',A(2*g.beta),''),
+    R('Driver plate diameter, min','2(a + d/2 + wall)',L(2*g.Rp),u),
+    R('Bore diameter','',L(i.b1),u)
+  ];
+  var layout=[
+    R('Centre distance','C',L(g.C),u),
+    R('Overall width','',L(2*Math.max(g.Rw,g.Rp)),u),
+    R('Overall length','R<sub>w</sub> + C + plate radius',L(g.Rw+g.C+g.Rp),u)
+  ];
+  var motion=[
+    R('Wheel turn per cycle','360°/n',(360/g.n).toFixed(1)+'°',''),
+    R('Crank angle while indexing','180° − 360°/n',g.eng.toFixed(1)+'°',''),
+    R('Crank angle while locked','180° + 360°/n',g.dwell.toFixed(1)+'°',''),
+    R('Share of cycle spent indexing','(n − 2)/(2n)',(g.frac*100).toFixed(1)+'%',''),
+    R('Peak wheel speed per crank speed','λ/(1 − λ), λ = sin(π/n)',g.vmax.toFixed(3),'×'),
+    R('Peak wheel speed at '+i.rpm+' rpm','',(g.vmax*i.rpm).toFixed(1),'rpm'),
+    R('Peak wheel acceleration','',(g.amax*g.w1*g.w1).toFixed(1),'rad/s²'),
+    R('Acceleration jump at pin entry','tan(π/n)·ω²',(g.aEntry*g.w1*g.w1).toFixed(1),'rad/s²'),
+    R('Indexing time','',g.tIdx.toFixed(3),'s'),
+    R('Locked time','',g.tDwell.toFixed(3),'s')
+  ];
+  return {wheel:wheel,driver:driver,layout:layout,motion:motion};
+}
+function checks(g){
+  var i=g.inp, u=S.unit, out=[];
+  var xt=Math.sqrt(g.Rw*g.Rw-g.w*g.w/4), e=xt-g.b, y=e<=0?0:(e>=g.a?Infinity:g.a-Math.sqrt(g.a*g.a-e*e));
+  var emax=Math.sqrt(Math.max(0,2*g.a*i.c-i.c*i.c)), mmax=Math.sqrt((g.b+emax)*(g.b+emax)+g.w*g.w/4)-g.b;
+  var okE=y<=i.c+1e-9;
+  out.push({ok:okE,t:'Pin enters between the slot tips',
+    d:okE?('Pin drifts '+L(y)+' off the slot axis at the tips. Allowed '+L(i.c)+' ('+u+').')
+         :('Pin drifts '+(isFinite(y)?L(y):'too far')+' off axis at the tips, allowed '+L(i.c)+'. Set the rim margin to '+L(mmax)+' or less, or raise the clearance.')});
+  var landW=g.land*g.Rw, okL=landW>=i.mw-1e-9;
+  out.push({ok:okL,t:'Land between lock cut and slot',d:'Width at the rim '+L(landW)+', wanted at least '+L(i.mw)+' ('+u+').'});
+  var wb=2*g.rc*Math.sin(g.p)-g.w, okW=wb>=i.mw-1e-9;
+  out.push({ok:okW,t:'Web between neighbouring slot bottoms',d:'Thinnest web '+L(wb)+', wanted at least '+L(i.mw)+' ('+u+').'});
+  var wr=Math.min(g.ri,g.C-g.Rc)-i.b2/2, okR=wr>=i.mw-1e-9;
+  out.push({ok:okR,t:'Material around the wheel bore',d:'Thinnest ring '+L(wr)+', wanted at least '+L(i.mw)+' ('+u+').'});
+  var dr=g.Rl-i.b1/2, okD=dr>=i.mw-1e-9;
+  out.push({ok:okD,t:'Material around the driver bore',d:'Lock disc ring '+L(dr)+', wanted at least '+L(i.mw)+' ('+u+').'});
+  return out;
+}
+var LAST={};
+function render(g){
+  var sh=sheets(g), ck=checks(g), bad=ck.filter(function(c){return !c.ok;}).length;
+  LAST={g:g,sh:sh,ck:ck};
+  var h='<div class="sheets">'+
+    '<section class="sheet"><h3>Driven wheel</h3>'+rowsHTML(sh.wheel)+'</section>'+
+    '<section class="sheet"><h3>Driver and lock disc</h3>'+rowsHTML(sh.driver)+'</section>'+
+    '<section class="sheet"><h3>Layout</h3>'+rowsHTML(sh.layout)+'</section>'+
+    '<section class="sheet"><h3>Motion</h3>'+rowsHTML(sh.motion)+'</section>'+
+    '</div>'+
+    '<div class="checks-wrap" id="checks"><h3>Checks</h3><ul class="checks">'+ck.map(function(c){
+      return '<li><span class="pill '+(c.ok?'ok':'bad')+'">'+(c.ok?'OK':'Fix')+'</span><span class="what">'+c.t+'</span><span class="detail">'+c.d+'</span></li>';
+    }).join('')+'</ul></div>';
+  $('out').innerHTML=h; $('out').classList.remove('stale');
+  $('problems').hidden=true;
+  var hb=$('health');
+  hb.className='pill '+(bad?'bad':'ok');
+  hb.textContent=bad?(bad+(bad===1?' check needs a fix':' checks need a fix')):'All checks pass';
+}
+function showProblems(pr){
+  var el=$('problems');
+  el.innerHTML='<strong>Check the inputs</strong><ul>'+pr.map(function(x){return '<li>'+x+'</li>';}).join('')+'</ul>';
+  el.hidden=false; $('out').classList.add('stale');
+  var hb=$('health'); hb.className='pill bad'; hb.textContent='Inputs need attention';
+}
+
+function update(){
+  syncChips();
+  $('m').disabled=$('autoM').checked;
+  var g=calc(readInputs());
+  if(g.pr.length){showProblems(g.pr);return;}
+  var first=!G;
+  if(g.inp.auto) setVal('m',g.inp.m);
+  G=g; setView(g); setGeometry(g); render(g); drawDims();
+  if(first||isNaN(phi)){phi=-g.beta/RAD*0.55;}
+  frame(); save();
+  if(playing&&!raf){lastTs=0;raf=requestAnimationFrame(tick);}
+}
+
+/* ---------- export ---------- */
+function buildSVG(g){
+  var i=g.inp, u=S.unit, sw=u==='mm'?0.1:0.004, gap=Math.max(g.Rw,g.Rp)*0.12;
+  var wd=pathD(wheelPoints(g)), dd=pathD(discPoints(g));
+  var H=2*Math.max(g.Rw,g.Rp), cy=H/2;
+  var x1=g.Rw, x2=2*g.Rw+gap+g.Rl, x3=2*g.Rw+gap+2*g.Rl+gap+g.Rp, W=x3+g.Rp;
+  var t=function(x){return Number(x.toFixed(3));};
+  var s='<svg xmlns="http://www.w3.org/2000/svg" width="'+t(W)+u+'" height="'+t(H)+u+'" viewBox="0 0 '+t(W)+' '+t(H)+'" fill="none" stroke="#000" stroke-width="'+sw+'">\n';
+  s+='<title>Geneva drive, '+g.n+' slots, centre distance '+L(g.C)+' '+u+'</title>\n';
+  s+='<g id="wheel" transform="translate('+t(x1)+' '+t(cy)+')"><path fill-rule="evenodd" d="'+wd+(i.b2>0?circleD(i.b2/2):'')+'"/></g>\n';
+  s+='<g id="lock-disc" transform="translate('+t(x2)+' '+t(cy)+')"><path fill-rule="evenodd" d="'+dd+(i.b1>0?circleD(i.b1/2):'')+'"/></g>\n';
+  s+='<g id="driver-plate" transform="translate('+t(x3)+' '+t(cy)+')"><circle r="'+t(g.Rp)+'"/>'+(i.b1>0?'<circle r="'+t(i.b1/2)+'"/>':'')+'<circle cy="'+t(-g.a)+'" r="'+t(i.d/2)+'"/></g>\n';
+  return s+'</svg>';
+}
+function buildText(){
+  var g=LAST.g, sh=LAST.sh, u=S.unit, lines=['Geneva drive, '+g.n+' slots ('+u+')',''];
+  function strip(x){return x.replace(/<[^>]+>/g,'');}
+  [['Driven wheel',sh.wheel],['Driver and lock disc',sh.driver],['Layout',sh.layout],['Motion',sh.motion]].forEach(function(p){
+    lines.push(p[0].toUpperCase());
+    p[1].forEach(function(r){lines.push('  '+strip(r.l)+': '+r.v+(r.u?' '+r.u:''));});
+    lines.push('');
+  });
+  return lines.join('\n');
+}
+function copyOut(text,label){
+  var box=$('cpBox'), msg=$('cpMsg');
+  box.hidden=false; box.value=text; box.focus(); box.select();
+  var done=function(ok){msg.textContent=ok?(label+' copied.'):'Copy is blocked here. The text is selected below, so copy it with your keyboard.';};
+  try{ navigator.clipboard.writeText(text).then(function(){done(true);},function(){done(false);}); }
+  catch(e){done(false);}
+}
+
+/* ---------- events ---------- */
+function onModeChange(newMode){
+  if(G){
+    var v={C:G.C,a:G.a,D:2*G.Rw}[newMode];
+    setVal('size',v);
+  }
+  S.mode=newMode; syncUnitUI(); update();
+}
+function onUnitChange(nu){
+  if(nu===S.unit) return;
+  var f=nu==='in'?1/25.4:25.4;
+  LENFIELDS.forEach(function(id){var v=num(id); if(isFinite(v)) $(id).value=String(parseFloat((v*f).toFixed(nu==='in'?4:3)));});
+  S.unit=nu; syncUnitUI(); G=null; update();
+}
+function init(){
+  buildGroups(); load(); syncUnitUI(); syncChips();
+  document.querySelectorAll('.inputs input[type=number]').forEach(function(el){el.addEventListener('input',update);});
+  $('autoM').addEventListener('change',update);
+  document.querySelectorAll('input[name=unit]').forEach(function(r){r.addEventListener('change',function(){onUnitChange(r.value);});});
+  document.querySelectorAll('input[name=mode]').forEach(function(r){r.addEventListener('change',function(){onModeChange(r.value);});});
+  $('chips').addEventListener('click',function(ev){var b=ev.target.closest('.chip'); if(!b) return; $('n').value=b.dataset.n; update();});
+  $('nDown').addEventListener('click',function(){var v=Math.max(3,(num('n')||4)-1); $('n').value=v; update();});
+  $('nUp').addEventListener('click',function(){var v=Math.min(60,(num('n')||4)+1); $('n').value=v; update();});
+  $('reset').addEventListener('click',function(){
+    var f=S.unit==='in'?1/25.4:1;
+    $('n').value=DEFAULTS.n; $('rpm').value=DEFAULTS.rpm; $('autoM').checked=true;
+    LENFIELDS.forEach(function(id){setVal(id,DEFAULTS[id]*f);});
+    S.mode='C'; syncUnitUI(); G=null; update();
+  });
+  $('play').addEventListener('click',function(){setPlaying(!playing);});
+  $('ang').addEventListener('input',function(){
+    setPlaying(false);
+    var cycles=Math.floor((phi+180)/360); phi=cycles*360+parseFloat($('ang').value); frame();
+  });
+  $('spd').addEventListener('change',function(){speed=parseFloat($('spd').value)||1;});
+  $('tDims').addEventListener('change',function(){var d=$('dims'); if($('tDims').checked) d.removeAttribute('hidden'); else d.setAttribute('hidden','');});
+  $('tCons').addEventListener('change',function(){var d=$('cons'); if($('tCons').checked) d.removeAttribute('hidden'); else d.setAttribute('hidden','');});
+  $('health').addEventListener('click',function(){var c=$('checks'); if(c) c.scrollIntoView({behavior:reduced?'auto':'smooth',block:'start'});});
+  $('cpSvg').addEventListener('click',function(){if(LAST.g) copyOut(buildSVG(LAST.g),'SVG');});
+  $('cpTxt').addEventListener('click',function(){if(LAST.g) copyOut(buildText(),'Dimensions');});
+  if(typeof ResizeObserver!=='undefined'){ try{ new ResizeObserver(function(){drawDims();}).observe($('stage')); }catch(e){} }
+  else window.addEventListener('resize',drawDims);
+  setPlaying(playing);
+  update();
+}
+init();
+})();
+</script>
+
+</body></html>
