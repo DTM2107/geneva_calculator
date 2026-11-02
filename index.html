@@ -159,6 +159,23 @@ button.pill{cursor:pointer}
 .notes{margin-top:30px;padding-top:14px;border-top:1px solid var(--line);font-size:13.5px;color:var(--muted);max-width:80ch}
 .notes b{color:var(--ink);font-weight:600}
 @media (prefers-reduced-motion:reduce){*{scroll-behavior:auto!important}}
+:root{--hi:#46f0c0}
+.viewseg{width:min(100%,270px)}
+.pane{position:relative}
+.pane+.pane{border-top:1px dashed rgba(233,241,251,.3)}
+.vlabel{position:absolute;left:10px;top:8px;font:600 11px/1 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--chalk-dim)}
+.screen[data-view=both] #stage{max-height:min(56vh,600px)}
+.s-shaft{fill:none;stroke:var(--chalk);stroke-width:1.2px;vector-effect:non-scaling-stroke}
+.s-hid{stroke:var(--chalk-dim);stroke-dasharray:4 3}
+.hl{fill:rgba(70,240,192,.3);stroke:var(--hi);stroke-width:2.6px;vector-effect:non-scaling-stroke;stroke-linejoin:round;stroke-linecap:round;pointer-events:none;visibility:hidden}
+.hl.ln{fill:none}
+.hl.on{visibility:visible;animation:hlp 1.3s ease-in-out infinite}
+@keyframes hlp{50%{opacity:.5}}
+.dim.hi .s-dim,.dim.hi .s-ext{stroke:var(--hi);stroke-width:2px}
+.dim.hi .s-text{fill:var(--hi)}
+.field:hover>label,.field:focus-within>label{color:var(--accent)}
+.sw.hi{background:rgba(70,240,192,.3);border-color:#46f0c0}
+@media (prefers-reduced-motion:reduce){.hl.on{animation:none}}
 </style>
 
 <div class="wrap">
@@ -179,7 +196,7 @@ button.pill{cursor:pointer}
 
       <fieldset>
         <legend>Driven wheel</legend>
-        <div class="field">
+        <div class="field" data-hl="slots">
           <label for="n"><span>Number of slots</span><span class="sym">n</span></label>
           <div class="stepper">
             <button type="button" id="nDown" aria-label="Fewer slots">&minus;</button>
@@ -190,7 +207,7 @@ button.pill{cursor:pointer}
         </div>
       </fieldset>
 
-      <fieldset>
+      <fieldset data-hl="size">
         <legend>Size by</legend>
         <div class="fields">
           <div class="seg" role="radiogroup" aria-label="Size by">
@@ -213,12 +230,15 @@ button.pill{cursor:pointer}
     <section class="panel stage" aria-label="Live drawing">
       <div class="stage-head">
         <h2>Live layout</h2>
+        <div class="seg viewseg" role="radiogroup" aria-label="View"><label><input type="radio" name="view" value="top"><span>Top</span></label><label><input type="radio" name="view" value="side"><span>Side</span></label><label><input type="radio" name="view" value="both" checked><span>Top + side</span></label></div>
         <div class="badges">
+          <button type="button" class="pill hint" id="editing" hidden></button>
           <span class="pill" id="state">Locked</span>
           <button type="button" class="pill ok" id="health">All checks pass</button>
         </div>
       </div>
-      <div class="screen">
+      <div class="screen" id="screen" data-view="both">
+        <div class="pane" id="paneTop"><span class="vlabel">Top view</span>
         <svg id="stage" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Animated Geneva drive: a driver with a pin and lock disc indexing a slotted wheel">
           <defs>
             <pattern id="grid" patternUnits="userSpaceOnUse" width="10" height="10"><path id="gridPath" d="M10 0H0V10" fill="none" stroke="var(--blue-grid)"/></pattern>
@@ -236,14 +256,43 @@ button.pill{cursor:pointer}
           <g id="wheel">
             <path id="wheelPath" class="s-wheel" fill-rule="evenodd"/>
             <circle id="mark" class="s-mark"/>
+            <path id="hRim" class="hl" data-f="rim" fill-rule="evenodd"/>
+            <path id="hSlots" class="hl" data-f="slots pinclr"/>
+            <path id="hBot" class="hl ln" data-f="bottom"/>
+            <path id="hLock" class="hl ln" data-f="lockclr"/>
+            <path id="hWO" class="hl ln" data-f="thick"/>
+            <circle id="hB2" class="hl" data-f="bore2"/>
           </g>
           <g id="driver">
             <path id="discPath" class="s-disc" fill-rule="evenodd"/>
             <line id="crank" class="s-crank" x1="0" y1="0" x2="0"/>
             <circle id="pin" class="s-pin" cx="0"/>
+            <path id="hDO" class="hl ln" data-f="lockclr thick"/>
+            <circle id="hB1" class="hl" data-f="bore1"/>
+            <line id="hCr" class="hl ln" data-f="crank speed"/>
+            <circle id="hPn" class="hl" data-f="pin pinclr crank speed"/>
           </g>
+          <g id="hlS"><line id="hCen" class="hl ln" data-f="centre"/><circle id="hCa" class="hl" data-f="centre"/><circle id="hCb" class="hl" data-f="centre"/><circle id="hOrb" class="hl ln" data-f="crank"/><circle id="hTip" class="hl ln" data-f="wheelD"/><circle id="hPl" class="hl ln" data-f="wall"/><circle id="hRi" class="hl ln" data-f="bottom"/></g>
           <g id="dims"></g>
-        </svg>
+        </svg></div>
+        <div class="pane" id="paneSide"><span class="vlabel">Side view</span>
+        <svg id="side" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Side view of the Geneva drive showing thickness and the stacking of plate, lock disc, wheel and pin">
+          <defs>
+            <pattern id="grid2" patternUnits="userSpaceOnUse" width="10" height="10"><path id="gridPath2" d="M10 0H0V10" fill="none" stroke="var(--blue-grid)"/></pattern>
+            <marker id="arr2" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse"><path d="M0 1L10 5L0 9z" fill="#e9f1fb"/></marker>
+          </defs>
+          <rect id="gridRect2" fill="url(#grid2)"/>
+          <g id="sStat"></g>
+          <g id="sCons"></g>
+          <rect id="sW" class="s-wheel"/>
+          <rect id="sD" class="s-disc"/>
+          <rect id="sP" class="s-pin"/>
+          <g id="sHls"></g>
+          <rect id="sWh" class="hl" data-f="slots pinclr bottom rim thick"/>
+          <rect id="sDh" class="hl" data-f="lockclr thick"/>
+          <rect id="sPh" class="hl" data-f="pin pinclr thick crank speed"/>
+          <g id="sDims"></g>
+        </svg></div>
       </div>
       <div class="controls">
         <button type="button" class="btn primary" id="play" aria-pressed="true" style="min-width:84px">Pause</button>
@@ -264,6 +313,8 @@ button.pill{cursor:pointer}
         <li><span class="sw disc"></span>Lock disc</li>
         <li><span class="sw pin"></span>Pin</li>
         <li><span class="sw plate"></span>Driver plate (sits below)</li>
+        <li><span class="sw hi"></span>Part you are editing</li>
+        <li>Side view: plate thickness is illustrative</li>
       </ul>
     </section>
   </div>
@@ -432,7 +483,7 @@ function buildGroups(){
   GROUPS.forEach(function(gr){
     h+='<fieldset><legend>'+gr.title+'</legend><div class="fields">';
     gr.fields.forEach(function(f){
-      h+='<div class="field"><label for="'+f.id+'"><span>'+f.label+'</span><span class="sym">'+(f.sym||'')+'</span></label>'+
+      h+='<div class="field" data-hl="'+HLK[f.id]+'"><label for="'+f.id+'"><span>'+f.label+'</span><span class="sym">'+(f.sym||'')+'</span></label>'+
         (f.hint?'<p class="hint" id="h_'+f.id+'">'+f.hint+'</p>':'')+
         (f.id==='m'?'<label class="chk" style="margin:2px 0 4px"><input type="checkbox" id="autoM" checked> Auto, half the entry limit</label>':'')+
         '<div class="inp"><input id="'+f.id+'" type="number" inputmode="decimal" step="any" min="0" value="'+DEFAULTS[f.id]+'"'+(f.hint?' aria-describedby="h_'+f.id+'"':'')+'>'+
@@ -457,7 +508,7 @@ function save(){
   try{
     var o={unit:S.unit,mode:S.mode};
     ['n','rpm'].concat(LENFIELDS).forEach(function(k){o[k]=$(k).value;});
-    o.auto=$('autoM').checked;
+    o.auto=$('autoM').checked; o.vm=VM;
     localStorage.setItem('geneva-calc-v1',JSON.stringify(o));
   }catch(e){}
 }
@@ -469,6 +520,7 @@ function load(){
     if(o.mode==='C'||o.mode==='a'||o.mode==='D') S.mode=o.mode;
     ['n','rpm'].concat(LENFIELDS).forEach(function(k){ if(o[k]!==undefined && o[k]!==null) $(k).value=o[k]; });
     if(typeof o.auto==='boolean') $('autoM').checked=o.auto;
+    if(o.vm==='top'||o.vm==='side'||o.vm==='both') VM=o.vm;
   }catch(e){}
 }
 function syncUnitUI(){
@@ -501,8 +553,9 @@ function setView(g){
 }
 function setGeometry(g){
   var i=g.inp;
-  $('wheelPath').setAttribute('d',pathD(wheelPoints(g))+(i.b2>0?circleD(i.b2/2):''));
-  $('discPath').setAttribute('d',pathD(discPoints(g))+(i.b1>0?circleD(i.b1/2):''));
+  var wp=wheelPoints(g), dp=discPoints(g); g.wp=wp; g.dp=dp;
+  $('wheelPath').setAttribute('d',pathD(wp)+(i.b2>0?circleD(i.b2/2):''));
+  $('discPath').setAttribute('d',pathD(dp)+(i.b1>0?circleD(i.b1/2):''));
   $('pin').setAttribute('cy',(-g.a).toFixed(3)); $('pin').setAttribute('r',(i.d/2).toFixed(3));
   $('crank').setAttribute('y2',(-g.a).toFixed(3));
   $('plate').setAttribute('r',g.Rp.toFixed(3)); $('plate').setAttribute('cx',0); $('plate').setAttribute('cy',g.C);
@@ -517,6 +570,7 @@ function setGeometry(g){
     mk.setAttribute('r',(g.Rw*0.014).toFixed(3));
     mk.setAttribute('cx',(rm*Math.sin(g.p)).toFixed(3)); mk.setAttribute('cy',(rm*Math.cos(g.p)).toFixed(3));
   } else mk.setAttribute('hidden','');
+  hlGeom(g); setSide(g);
 }
 function drawDims(){
   var el=$('dims');
@@ -524,15 +578,18 @@ function drawDims(){
   var px=$('stage').getBoundingClientRect().width||640, k=view.w/px, fs=11.5*k;
   var Rw=G.Rw, C=G.C, Rp=G.Rp, Xd=view.Rmax+view.pad*1.1, Yd=-Rw-view.pad*1.2;
   var s='';
+  s+='<g class="dim" data-f="centre">';
   s+='<line class="s-ext" x1="'+(Rw+fs*0.4)+'" y1="0" x2="'+(Xd+fs*0.6)+'" y2="0"/>';
   s+='<line class="s-ext" x1="'+(Rp+fs*0.4)+'" y1="'+C+'" x2="'+(Xd+fs*0.6)+'" y2="'+C+'"/>';
   s+='<line class="s-dim" x1="'+Xd+'" y1="0" x2="'+Xd+'" y2="'+C+'" marker-start="url(#arr)" marker-end="url(#arr)"/>';
   s+='<text class="s-text" x="'+(Xd+fs*0.7)+'" y="'+(C/2)+'" font-size="'+fs+'" dominant-baseline="middle">C '+L(C)+'</text>';
+  s+='</g><g class="dim" data-f="wheelD rim">';
   s+='<line class="s-ext" x1="'+(-Rw)+'" y1="'+(-fs*0.4)+'" x2="'+(-Rw)+'" y2="'+(Yd-fs*0.6)+'"/>';
   s+='<line class="s-ext" x1="'+Rw+'" y1="'+(-fs*0.4)+'" x2="'+Rw+'" y2="'+(Yd-fs*0.6)+'"/>';
   s+='<line class="s-dim" x1="'+(-Rw)+'" y1="'+Yd+'" x2="'+Rw+'" y2="'+Yd+'" marker-start="url(#arr)" marker-end="url(#arr)"/>';
   s+='<text class="s-text" x="0" y="'+(Yd-fs*0.6)+'" font-size="'+fs+'" text-anchor="middle">Ø '+L(2*Rw)+'</text>';
-  el.innerHTML=s;
+  s+='</g>';
+  el.innerHTML=s; sideDims(); applyHL();
 }
 function frame(){
   if(!G) return;
@@ -540,6 +597,7 @@ function frame(){
   var th=wheelAngle(G,phi);
   $('wheel').setAttribute('transform','rotate('+(-th/RAD).toFixed(3)+')');
   $('driver').setAttribute('transform','translate(0 '+G.C+') rotate('+wrapped.toFixed(3)+')');
+  sideFrame(th,wrapped);
   var eng=Math.abs(wrapped)<=G.beta/RAD+1e-9;
   var st=$('state');
   st.textContent=eng?'Indexing':'Locked';
@@ -664,6 +722,103 @@ function update(){
   if(playing&&!raf){lastTs=0;raf=requestAnimationFrame(tick);}
 }
 
+/* ---------- views and highlight ---------- */
+var VM='both', SD=null, sv=null, sEl=null, hlHover=null, hlFocus=null;
+var HLK={d:'pin',c:'pinclr',cl:'lockclr',cb:'bottom',m:'rim',b2:'bore2',b1:'bore1',T:'thick',mw:'wall',rpm:'speed'};
+var FN={slots:'Number of slots',pin:'Pin diameter',pinclr:'Pin-to-slot clearance',lockclr:'Lock-disc clearance',bottom:'Slot-bottom clearance',rim:'Rim margin',bore2:'Wheel bore',bore1:'Driver bore',thick:'Wheel thickness',wall:'Minimum wall',speed:'Driver speed',centre:'Centre distance',crank:'Crank radius',wheelD:'Wheel diameter'};
+function q3(v){return +v.toFixed(3);}
+function Qp(r,t,ex,ey){return q3(r*ex+t*ey)+' '+q3(r*ey-t*ex);}
+function st(id,k,v){$(id).setAttribute(k,v);}
+function featOf(el){var f=el&&el.closest?el.closest('[data-hl]'):null; return f?f.dataset.hl:null;}
+function applyHL(){
+  var raw=hlHover||hlFocus, k=raw==='size'?{C:'centre',a:'crank',D:'wheelD'}[S.mode]:raw;
+  document.querySelectorAll('.hl,.dim').forEach(function(e){
+    var on=!!k&&(' '+e.dataset.f+' ').indexOf(' '+k+' ')>=0;
+    e.classList.toggle(e.classList.contains('dim')?'hi':'on',on);
+  });
+  var b=$('editing');
+  if(!k){b.hidden=true;return;}
+  var need=(k==='thick'&&VM==='top');
+  b.hidden=false; b.dataset.go=need?'1':'';
+  b.textContent='Highlighting: '+FN[k]+(need?' \u00b7 tap for side view':'');
+}
+function setViewMode(m){
+  VM=m; $('screen').dataset.view=m;
+  $('paneTop').hidden=(m==='side'); $('paneSide').hidden=(m==='top');
+  document.querySelectorAll('.vlabel').forEach(function(e){e.hidden=(m!=='both');});
+  document.querySelectorAll('input[name=view]').forEach(function(r){r.checked=(r.value===m);});
+  drawDims(); frame(); save();
+}
+function hlGeom(g){
+  var i=g.inp, n=g.n, p=g.p, w=g.w, Rw=g.Rw, C=g.C, Rc=g.Rc, thc=g.thc, a=g.a;
+  var rcen=g.ri+w/2, xT=Math.sqrt(Rw*Rw-w*w/4), sl='', lk='', bt='', k, j, u, ps;
+  for(k=0;k<n;k++){
+    var ck=TAU*k/n, sk=ck+p, ex=Math.sin(sk), ey=Math.cos(sk);
+    ps=[];
+    for(u=0;u<=18;u++){var uu=Math.PI*u/18; ps.push(Qp(rcen-(w/2)*Math.sin(uu),-(w/2)*Math.cos(uu),ex,ey));}
+    bt+='M'+ps.join('L');
+    ps.push(Qp(xT,w/2,ex,ey),Qp(xT,-w/2,ex,ey)); sl+='M'+ps.join('L')+'Z';
+    for(j=0;j<=24;j++){
+      var qq=-thc+2*thc*j/24, r=C*Math.cos(qq)-Math.sqrt(Math.max(0,Rc*Rc-C*C*Math.sin(qq)*Math.sin(qq)));
+      lk+=(j?'L':'M')+q3(r*Math.sin(ck+qq))+' '+q3(r*Math.cos(ck+qq));
+    }
+  }
+  st('hSlots','d',sl); st('hBot','d',bt); st('hLock','d',lk); st('hWO','d',pathD(g.wp));
+  st('hB2','r',Math.max(0,i.b2/2)); st('hRim','d',circleD(Rw)+circleD(g.b));
+  st('hDO','d',pathD(g.dp)); st('hB1','r',Math.max(0,i.b1/2));
+  st('hCr','y2',-a); st('hPn','cy',-a); st('hPn','r',i.d/2);
+  st('hCen','y2',C); st('hCa','r',Rw*0.03); st('hCb','r',Rw*0.03); st('hCb','cy',C);
+  st('hOrb','cy',C); st('hOrb','r',a); st('hTip','r',Rw); st('hPl','cy',C); st('hPl','r',g.Rp); st('hRi','r',g.ri);
+}
+function setSide(g){
+  var i=g.inp, one=S.unit==='mm'?1:1/25.4, T=i.T, tp=0.6*T, e=Math.max(0.9*T,2*one), pl=T+one;
+  var Rw=g.Rw, C=g.C, Rp=g.Rp, a=g.a, d=i.d, pad=0.07*(Rw+C+Rp), zt=pl+e, zb=tp+e;
+  SD={T:T,tp:tp,e:e,pl:pl,pad:pad,zt:zt,zb:zb};
+  sv={left:-Rw-pad*3.8, right:C+Rp+pad*4.6, top:-zt-pad*2.6, bottom:zb+pad*2.2};
+  sv.w=sv.right-sv.left; sv.h=sv.bottom-sv.top;
+  st('side','viewBox',[sv.left,sv.top,sv.w,sv.h].map(q3).join(' '));
+  var gr=$('gridRect2'); gr.setAttribute('x',sv.left); gr.setAttribute('y',sv.top); gr.setAttribute('width',sv.w); gr.setAttribute('height',sv.h);
+  var s0=niceStep(Math.max(sv.w,sv.h)); st('grid2','width',s0); st('grid2','height',s0);
+  st('gridPath2','d','M'+s0+' 0H0V'+s0); st('gridPath2','stroke-width',(sv.w*0.0013).toFixed(4));
+  function rt(c,x,y,w,h,x2){return '<rect class="'+c+'" x="'+q3(x)+'" y="'+q3(y)+'" width="'+q3(w)+'" height="'+q3(h)+'"'+(x2||'')+'/>';}
+  function hr(f,ln,x,y,w,h){return '<rect class="hl'+(ln?' ln':'')+'" data-f="'+f+'" x="'+q3(x)+'" y="'+q3(y)+'" width="'+q3(w)+'" height="'+q3(h)+'"/>';}
+  function vl(c,x,f){return '<line class="'+c+'"'+(f?' data-f="'+f+'"':'')+' x1="'+q3(x)+'" x2="'+q3(x)+'" y1="'+q3(-zt-pad*0.4)+'" y2="'+q3(zb+pad*0.4)+'"/>';}
+  function shaft(h,b,zlo,zhi,i0,i1){
+    if(!(b>0)) return '';
+    var x0=q3(h-b/2), x1=q3(h+b/2);
+    return '<path class="s-shaft" d="M'+x0+' '+q3(-i0)+'V'+q3(-zlo)+'H'+x1+'V'+q3(-i0)+'M'+x0+' '+q3(-i1)+'V'+q3(-zhi)+'H'+x1+'V'+q3(-i1)+'"/>'+
+      '<path class="s-shaft s-hid" d="M'+x0+' '+q3(-i0)+'V'+q3(-i1)+'M'+x1+' '+q3(-i0)+'V'+q3(-i1)+'"/>';
+  }
+  $('sStat').innerHTML=rt('s-plate',C-Rp,0,2*Rp,tp,' style="fill:rgba(242,194,90,.08)"')+shaft(0,i.b2,-e,T+e,0,T)+shaft(C,i.b1,-tp-e,zt,-tp,T);
+  $('sCons').innerHTML=rt('s-ext',-Rw,-T,2*Rw,T)+vl('s-cl',0)+vl('s-cl',C);
+  $('sHls').innerHTML=(i.b2>0?hr('bore2',0,-i.b2/2,-(T+e),i.b2,T+2*e):'')+(i.b1>0?hr('bore1',0,C-i.b1/2,-zt,i.b1,zt+zb):'')+
+    hr('wall',0,C-Rp,0,2*Rp,tp)+hr('wheelD',1,-Rw,-T,2*Rw,T)+hr('crank',1,C-a-d/2,-pl,2*a+d,pl)+vl('hl ln',0,'centre')+vl('hl ln',C,'centre');
+}
+function box(a,x,y,w,h){a.forEach(function(e){e.setAttribute('x',x.toFixed(3));e.setAttribute('y',y.toFixed(3));e.setAttribute('width',w.toFixed(3));e.setAttribute('height',h.toFixed(3));});}
+function sideFrame(th,wrapped){
+  if(VM==='top'||!SD||!G) return;
+  if(!sEl) sEl={W:[$('sW'),$('sWh')],D:[$('sD'),$('sDh')],P:[$('sP'),$('sPh')]};
+  var T=SD.T, pl=SD.pl, s=Math.sin(th), c=Math.cos(th), pts=G.wp, mn=1e9, mx=-1e9, k, v;
+  for(k=0;k<pts.length;k++){v=pts[k][1]*c-pts[k][0]*s; if(v<mn) mn=v; if(v>mx) mx=v;}
+  box(sEl.W,mn,-T,mx-mn,T);
+  var f=wrapped*RAD; s=Math.sin(f); c=Math.cos(f); pts=G.dp; mn=1e9; mx=-1e9;
+  for(k=0;k<pts.length;k++){v=pts[k][0]*s+pts[k][1]*c; if(v<mn) mn=v; if(v>mx) mx=v;}
+  box(sEl.D,G.C+mn,-T,mx-mn,T);
+  var d=G.inp.d; box(sEl.P,G.C-G.a*c-d/2,-pl,d,pl);
+}
+function sideDims(){
+  var el=$('sDims'); if(!G||!SD||!sv){el.innerHTML='';return;}
+  var px=$('side').getBoundingClientRect().width||640, k=sv.w/px, fs=11.5*k, p=SD.pad, Rw=G.Rw, C=G.C, Rp=G.Rp, T=SD.T, pl=SD.pl;
+  var yD=-SD.zt-p*1.3, yC=SD.zb+p, xT=-Rw-p*1.3, xP=C+Rp+p*1.3, M=' marker-start="url(#arr2)" marker-end="url(#arr2)"';
+  function ln(c,x1,y1,x2,y2,m){return '<line class="'+c+'" x1="'+q3(x1)+'" y1="'+q3(y1)+'" x2="'+q3(x2)+'" y2="'+q3(y2)+'"'+(m||'')+'/>';}
+  function tx(x,y,t,an){return '<text class="s-text" x="'+q3(x)+'" y="'+q3(y)+'" font-size="'+q3(fs)+'" text-anchor="'+an+'" dominant-baseline="middle">'+t+'</text>';}
+  var s='<g class="dim" data-f="wheelD rim">'+ln('s-ext',-Rw,-T-fs*.4,-Rw,yD-fs*.6)+ln('s-ext',Rw,-T-fs*.4,Rw,yD-fs*.6)+ln('s-dim',-Rw,yD,Rw,yD,M)+tx(0,yD-fs*.9,'\u00d8 '+L(2*Rw),'middle')+'</g>';
+  s+='<g class="dim" data-f="centre">'+ln('s-ext',0,SD.e+fs*.4,0,yC+fs*.6)+ln('s-ext',C,SD.zb+fs*.4,C,yC+fs*.6)+ln('s-dim',0,yC,C,yC,M)+tx(C/2,yC+fs*1.2,'C '+L(C),'middle')+'</g>';
+  s+='<g class="dim" data-f="thick">'+ln('s-ext',-Rw-fs*.4,0,xT-fs*.6,0)+ln('s-ext',-Rw-fs*.4,-T,xT-fs*.6,-T)+ln('s-dim',xT,0,xT,-T,M)+tx(xT-fs*.7,-T/2,'T '+L(T),'end')+'</g>';
+  s+='<g class="dim" data-f="thick">'+ln('s-ext',C+Rp+fs*.4,0,xP+fs*.6,0)+ln('s-ext',C+G.a+G.inp.d/2+fs*.4,-pl,xP+fs*.6,-pl)+ln('s-dim',xP,0,xP,-pl,M)+tx(xP+fs*.7,-pl/2,'Pin '+L(pl),'start')+'</g>';
+  el.innerHTML=s;
+}
+
 /* ---------- export ---------- */
 function buildSVG(g){
   var i=g.inp, u=S.unit, sw=u==='mm'?0.1:0.004, gap=Math.max(g.Rw,g.Rp)*0.12;
@@ -711,7 +866,7 @@ function onUnitChange(nu){
   S.unit=nu; syncUnitUI(); G=null; update();
 }
 function init(){
-  buildGroups(); load(); syncUnitUI(); syncChips();
+  buildGroups(); load(); syncUnitUI(); syncChips(); setViewMode(VM);
   document.querySelectorAll('.inputs input[type=number]').forEach(function(el){el.addEventListener('input',update);});
   $('autoM').addEventListener('change',update);
   document.querySelectorAll('input[name=unit]').forEach(function(r){r.addEventListener('change',function(){onUnitChange(r.value);});});
@@ -731,13 +886,20 @@ function init(){
     var cycles=Math.floor((phi+180)/360); phi=cycles*360+parseFloat($('ang').value); frame();
   });
   $('spd').addEventListener('change',function(){speed=parseFloat($('spd').value)||1;});
-  $('tDims').addEventListener('change',function(){var d=$('dims'); if($('tDims').checked) d.removeAttribute('hidden'); else d.setAttribute('hidden','');});
-  $('tCons').addEventListener('change',function(){var d=$('cons'); if($('tCons').checked) d.removeAttribute('hidden'); else d.setAttribute('hidden','');});
+  ['tDims:dims,sDims','tCons:cons,sCons'].forEach(function(s){var p=s.split(':');$(p[0]).addEventListener('change',function(){p[1].split(',').forEach(function(id){var d=$(id); if($(p[0]).checked) d.removeAttribute('hidden'); else d.setAttribute('hidden','');});});});
   $('health').addEventListener('click',function(){var c=$('checks'); if(c) c.scrollIntoView({behavior:reduced?'auto':'smooth',block:'start'});});
   $('cpSvg').addEventListener('click',function(){if(LAST.g) copyOut(buildSVG(LAST.g),'SVG');});
   $('cpTxt').addEventListener('click',function(){if(LAST.g) copyOut(buildText(),'Dimensions');});
-  if(typeof ResizeObserver!=='undefined'){ try{ new ResizeObserver(function(){drawDims();}).observe($('stage')); }catch(e){} }
+  if(typeof ResizeObserver!=='undefined'){ try{ var ro=new ResizeObserver(function(){drawDims();}); ro.observe($('stage')); ro.observe($('side')); }catch(e){} }
   else window.addEventListener('resize',drawDims);
+  document.querySelectorAll('input[name=view]').forEach(function(r){r.addEventListener('change',function(){setViewMode(r.value);});});
+  var pn=document.querySelector('.inputs');
+  pn.addEventListener('focusin',function(e){hlFocus=featOf(e.target);applyHL();});
+  pn.addEventListener('focusout',function(){hlFocus=null;applyHL();});
+  pn.addEventListener('mouseover',function(e){var k=featOf(e.target); if(k!==hlHover){hlHover=k;applyHL();}});
+  pn.addEventListener('mouseleave',function(){hlHover=null;applyHL();});
+  document.querySelectorAll('input[name=mode]').forEach(function(r){r.addEventListener('change',applyHL);});
+  $('editing').addEventListener('click',function(){if(this.dataset.go) setViewMode('both');});
   setPlaying(playing);
   update();
 }
