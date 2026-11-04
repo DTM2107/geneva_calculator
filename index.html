@@ -135,6 +135,10 @@ button.pill{cursor:pointer}
 .sheet{min-width:0}
 .sheet h3{font-size:20px;font-weight:600;letter-spacing:.06em;text-transform:uppercase;border-top:3px solid var(--accent);padding-top:10px;margin-bottom:4px}
 .rows{margin:0}
+.row dt.hasic{display:flex;align-items:center;gap:12px}
+.row dt .tx{min-width:0}
+.ico{flex:none;width:68px;height:48px;background:#f4f7fb;border:1px solid var(--line);border-radius:6px}
+.sheet .note{margin:6px 0 4px;color:var(--muted);font-size:13px;line-height:1.4}
 .row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 16px;align-items:baseline;padding:9px 0;border-bottom:1px solid var(--line)}
 .row dt{font-weight:500;min-width:0}
 .row dt small{display:block;margin-top:2px;font:400 12px/1.35 var(--mono);color:var(--muted)}
@@ -510,7 +514,7 @@ function readInputs(){
 }
 function L(x){return x.toFixed(S.unit==='mm'?2:3);}
 function A(x){return (x/RAD).toFixed(1)+'°';}
-function setVal(id,v){$(id).value=String(parseFloat(v.toFixed(4)));}
+function setVal(id,v){$(id).value=String(parseFloat(v.toFixed(S.unit==='in'?6:4)));}
 function save(){
   try{
     var o={unit:S.unit,mode:S.mode};
@@ -544,13 +548,17 @@ function syncChips(){
 }
 
 /* ---------- drawing ---------- */
+function pxScale(svg,w,h){
+  var r=svg.getBoundingClientRect(), sc=Math.min((r.width||640)/w,(r.height||400)/h);
+  return sc>0?sc:1;
+}
 function niceStep(span){
   var raw=span/9, e=Math.pow(10,Math.floor(Math.log(raw)/Math.LN10)), m=raw/e;
   return (m<2?1:m<5?2:5)*e;
 }
 function setView(g){
   var Rmax=Math.max(g.Rw,g.Rp), pad=0.07*(g.Rw+g.C+g.Rp);
-  view={left:-Rmax-pad, right:Rmax+pad*3.6, top:-g.Rw-pad*2.1, bottom:g.C+g.Rp+pad, pad:pad, Rmax:Rmax};
+  view={left:-Rmax-pad, right:Rmax+pad*3.6, top:-g.Rw-pad*2.1, bottom:g.C+g.Rp+pad*2.2, pad:pad, Rmax:Rmax};
   view.w=view.right-view.left; view.h=view.bottom-view.top;
   $('stage').setAttribute('viewBox',view.left.toFixed(3)+' '+view.top.toFixed(3)+' '+view.w.toFixed(3)+' '+view.h.toFixed(3));
   var gr=$('gridRect'); gr.setAttribute('x',view.left); gr.setAttribute('y',view.top); gr.setAttribute('width',view.w); gr.setAttribute('height',view.h);
@@ -582,7 +590,7 @@ function setGeometry(g){
 function drawDims(){
   var el=$('dims');
   if(!G||!view){el.innerHTML='';return;}
-  var px=$('stage').getBoundingClientRect().width||640, k=view.w/px, fs=11.5*k;
+  var k=1/pxScale($('stage'),view.w,view.h), fs=12.5*k;
   var Rw=G.Rw, C=G.C, Rp=G.Rp, Xd=view.Rmax+view.pad*1.1, Yd=-Rw-view.pad*1.2;
   var s='';
   s+='<g class="dim" data-f="centre">';
@@ -596,6 +604,11 @@ function drawDims(){
   s+='<line class="s-dim" x1="'+(-Rw)+'" y1="'+Yd+'" x2="'+Rw+'" y2="'+Yd+'" marker-start="url(#arr)" marker-end="url(#arr)"/>';
   s+='<text class="s-text" x="0" y="'+(Yd-fs*0.6)+'" font-size="'+fs+'" text-anchor="middle">Ø '+L(2*Rw)+'</text>';
   s+='</g>';
+  var Rl=G.Rl, Yl=C+Rp+view.pad*0.7;
+  s+='<g class="dim" data-f="lockclr rim"><line class="s-ext" x1="'+(-Rl)+'" y1="'+(C+fs*0.4)+'" x2="'+(-Rl)+'" y2="'+(Yl+fs*0.6)+'"/>';
+  s+='<line class="s-ext" x1="'+Rl+'" y1="'+(C+fs*0.4)+'" x2="'+Rl+'" y2="'+(Yl+fs*0.6)+'"/>';
+  s+='<line class="s-dim" x1="'+(-Rl)+'" y1="'+Yl+'" x2="'+Rl+'" y2="'+Yl+'" marker-start="url(#arr)" marker-end="url(#arr)"/>';
+  s+='<text class="s-text" x="0" y="'+(Yl+fs*1.5)+'" font-size="'+fs+'" text-anchor="middle" dominant-baseline="middle">Ø '+L(2*Rl)+' lock disc</text></g>';
   el.innerHTML=s; sideDims(); applyHL();
 }
 function frame(){
@@ -625,21 +638,32 @@ function setPlaying(on){
 
 /* ---------- results ---------- */
 function R(l,f,v,u){return {l:l,f:f,v:v,u:u};}
-function rowsHTML(rows){
+function rowsHTML(rows,m){
   return '<dl class="rows">'+rows.map(function(r){
-    return '<div class="row"><dt>'+r.l+(r.f?'<small>'+r.f+'</small>':'')+'</dt><dd>'+r.v+(r.u?'<i>'+r.u+'</i>':'')+'</dd></div>';
+    var ic=m?icon(m,ICK[m][r.l]):'';
+    return '<div class="row"><dt'+(ic?' class="hasic"':'')+'>'+ic+'<span class="tx">'+r.l+(r.f?'<small>'+r.f+'</small>':'')+'</span></dt><dd>'+r.v+(r.u?'<i>'+r.u+'</i>':'')+'</dd></div>';
   }).join('')+'</dl>';
 }
 function sheets(g){
   var i=g.inp, u=S.unit, one=u==='mm'?1:1/25.4;
+  var rcen=g.ri+g.w/2, xT=Math.sqrt(g.Rw*g.Rw-g.w*g.w/4), dg=function(x){return (x*180/Math.PI).toFixed(2)+'\u00b0';};
   var wheel=[
     R('Outer diameter','2(C cos(π/n) + m)',L(2*g.Rw),u),
     R('Number of slots','n',String(g.n),''),
     R('Slot width','d + 2c',L(g.w),u),
     R('Slot length, rim to bottom','R<sub>w</sub> − r<sub>i</sub>',L(g.Rw-g.ri),u),
+    R('Slot bottom radius (round end)','w/2',L(g.w/2),u),
+    R('Slot bottom centre, from wheel centre','r<sub>i</sub> + w/2',L(rcen),u),
+    R('Slot straight side length','from the round end to the rim corner',L(xT-rcen),u),
+    R('Slot spacing','360°/n',(360/g.n).toFixed(2)+'\u00b0',''),
     R('Slot bottom circle diameter','2r<sub>i</sub> = 2(C − a − d/2 − cb)',L(2*g.ri),u),
     R('Lock-cut radius','R<sub>l</sub> + cl',L(g.Rc),u),
     R('Smallest wheel radius, at lock cut','C − lock-cut radius',L(g.C-g.Rc),u),
+    R('Lock-cut arc centre, from wheel centre','C, on the lock-cut axis',L(g.C),u),
+    R('Lock-cut angular width','seen from wheel centre',dg(2*g.thc),''),
+    R('Lock-cut width at rim (chord)','2R<sub>w</sub> sin(half width)',L(2*g.Rw*Math.sin(g.thc)),u),
+    R('Lock-cut depth below rim','R<sub>w</sub> − (C − lock-cut radius)',L(g.Rw-(g.C-g.Rc)),u),
+    R('Land width at rim, lock cut to slot','',L(g.land*g.Rw),u),
     R('Bore diameter','',L(i.b2),u),
     R('Thickness','',L(i.T),u)
   ];
@@ -650,6 +674,12 @@ function sheets(g){
     R('Lock disc diameter','2(a − √(R<sub>w</sub>′² − b²))',L(2*g.Rl),u),
     R('Notch floor radius','C − R<sub>w</sub> − cl',L(g.C-g.Rwp),u),
     R('Notch angle','180° − 360°/n',A(2*g.beta),''),
+    R('Notch radius (arc about wheel centre)','R<sub>w</sub> + cl',L(g.Rwp),u),
+    R('Notch width (chord)','2R<sub>l</sub> sin(β)',L(2*g.Rl*Math.sin(g.beta)),u),
+    R('Notch depth','R<sub>l</sub> − (C − R<sub>w</sub>′)',L(g.Rl-(g.C-g.Rwp)),u),
+    R('Pin position','on the notch centreline','0\u00b0',''),
+    R('Pin enters slot at crank angle','±(90° − 180°/n) from line of centres','\u00b1'+(g.eng/2).toFixed(1)+'\u00b0',''),
+    R('Lock disc thickness','same as the wheel',L(i.T),u),
     R('Driver plate diameter, min','2(a + d/2 + wall)',L(2*g.Rp),u),
     R('Bore diameter','',L(i.b1),u)
   ];
@@ -670,7 +700,9 @@ function sheets(g){
     R('Indexing time','',g.tIdx.toFixed(3),'s'),
     R('Locked time','',g.tDwell.toFixed(3),'s')
   ];
-  return {wheel:wheel,driver:driver,layout:layout,motion:motion};
+  var angles=[];
+  for(var k=0;k<g.n;k++) angles.push(R('Slot '+(k+1),'lock cut at '+((360*k/g.n)%360).toFixed(2)+'\u00b0',(((360*k/g.n)+180/g.n)%360).toFixed(2)+'\u00b0',''));
+  return {wheel:wheel,driver:driver,layout:layout,motion:motion,angles:angles};
 }
 function checks(g){
   var i=g.inp, u=S.unit, out=[];
@@ -694,11 +726,12 @@ var LAST={};
 function render(g){
   var sh=sheets(g), ck=checks(g), bad=ck.filter(function(c){return !c.ok;}).length;
   LAST={g:g,sh:sh,ck:ck};
-  var h='<div class="sheets">'+
-    '<section class="sheet"><h3>Driven wheel</h3>'+rowsHTML(sh.wheel)+'</section>'+
-    '<section class="sheet"><h3>Driver and lock disc</h3>'+rowsHTML(sh.driver)+'</section>'+
-    '<section class="sheet"><h3>Layout</h3>'+rowsHTML(sh.layout)+'</section>'+
+  var h=icDefs(g)+'<div class="sheets">'+
+    '<section class="sheet"><h3>Driven wheel</h3>'+rowsHTML(sh.wheel,'w')+'</section>'+
+    '<section class="sheet"><h3>Driver and lock disc</h3>'+rowsHTML(sh.driver,'d')+'</section>'+
+    '<section class="sheet"><h3>Layout</h3>'+rowsHTML(sh.layout,'a')+'</section>'+
     '<section class="sheet"><h3>Motion</h3>'+rowsHTML(sh.motion)+'</section>'+
+    '<section class="sheet"><h3>Slot positions</h3><p class="note">Slot centre angle on the wheel, measured counter-clockwise as drawn with the driver below the wheel. Each slot sits halfway between two lock cuts, and every slot is cut at its own angle from the same wheel centre.</p>'+rowsHTML(sh.angles)+'</section>'+
     '</div>'+
     '<div class="checks-wrap" id="checks"><h3>Checks</h3><ul class="checks">'+ck.map(function(c){
       return '<li><span class="pill '+(c.ok?'ok':'bad')+'">'+(c.ok?'OK':'Fix')+'</span><span class="what">'+c.t+'</span><span class="detail">'+c.d+'</span></li>';
@@ -815,7 +848,7 @@ function sideFrame(th,wrapped){
 }
 function sideDims(){
   var el=$('sDims'); if(!G||!SD||!sv){el.innerHTML='';return;}
-  var px=$('side').getBoundingClientRect().width||640, k=sv.w/px, fs=11.5*k, p=SD.pad, Rw=G.Rw, C=G.C, Rp=G.Rp, T=SD.T, pl=SD.pl;
+  var k=1/pxScale($('side'),sv.w,sv.h), fs=12.5*k, p=SD.pad, Rw=G.Rw, C=G.C, Rp=G.Rp, T=SD.T, pl=SD.pl;
   var yD=-SD.zt-p*1.3, yC=SD.zb+p, xT=-Rw-p*1.3, xP=C+Rp+p*1.3, M=' marker-start="url(#arr2)" marker-end="url(#arr2)"';
   function ln(c,x1,y1,x2,y2,m){return '<line class="'+c+'" x1="'+q3(x1)+'" y1="'+q3(y1)+'" x2="'+q3(x2)+'" y2="'+q3(y2)+'"'+(m||'')+'/>';}
   function tx(x,y,t,an){return '<text class="s-text" x="'+q3(x)+'" y="'+q3(y)+'" font-size="'+q3(fs)+'" text-anchor="'+an+'" dominant-baseline="middle">'+t+'</text>';}
@@ -824,6 +857,131 @@ function sideDims(){
   s+='<g class="dim" data-f="thick">'+ln('s-ext',-Rw-fs*.4,0,xT-fs*.6,0)+ln('s-ext',-Rw-fs*.4,-T,xT-fs*.6,-T)+ln('s-dim',xT,0,xT,-T,M)+tx(xT-fs*.7,-T/2,'T '+L(T),'end')+'</g>';
   s+='<g class="dim" data-f="thick">'+ln('s-ext',C+Rp+fs*.4,0,xP+fs*.6,0)+ln('s-ext',C+G.a+G.inp.d/2+fs*.4,-pl,xP+fs*.6,-pl)+ln('s-dim',xP,0,xP,-pl,M)+tx(xP+fs*.7,-pl/2,'Pin '+L(pl),'start')+'</g>';
   el.innerHTML=s;
+}
+
+/* ---------- 3D thumbnails ---------- */
+var ICK={
+ w:{'Outer diameter':'wd','Number of slots':'slots','Slot width':'sw','Slot length, rim to bottom':'sl','Slot bottom radius (round end)':'sbr','Slot bottom centre, from wheel centre':'sbc','Slot straight side length':'ssl','Slot spacing':'ssp','Slot bottom circle diameter':'sbd','Lock-cut radius':'lcr','Smallest wheel radius, at lock cut':'lcm','Lock-cut arc centre, from wheel centre':'lcc','Lock-cut angular width':'lcw','Lock-cut width at rim (chord)':'lcch','Lock-cut depth below rim':'lcd','Land width at rim, lock cut to slot':'land','Bore diameter':'b2','Thickness':'T'},
+ d:{'Crank radius, pin centre':'ca','Pin diameter':'pd','Pin length above plate':'pl','Lock disc diameter':'ld','Notch floor radius':'nf','Notch angle':'na','Notch radius (arc about wheel centre)':'nr','Notch width (chord)':'nw','Notch depth':'nd','Pin position':'pp','Pin enters slot at crank angle':'pe','Lock disc thickness':'dt','Driver plate diameter, min':'pld','Bore diameter':'b1'},
+ a:{'Centre distance':'C','Overall width':'ow','Overall length':'ol'}
+};
+var ICX={};
+var HS='stroke="#e8590c" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"';
+function hpt(o){return o.map(function(p,j){return (j?'L':'M')+q3(p[0])+' '+q3(p[1]);}).join('');}
+function hdot(p){return '<line x1="'+q3(p[0])+'" y1="'+q3(p[1])+'" x2="'+q3(p[0])+'" y2="'+q3(p[1])+'" '+HS+' stroke-width="5"/>';}
+function hln(a,b){return '<line x1="'+q3(a[0])+'" y1="'+q3(a[1])+'" x2="'+q3(b[0])+'" y2="'+q3(b[1])+'" '+HS+' stroke-width="2.2"/>'+hdot(a)+hdot(b);}
+function hpath(d,fill){return '<path d="'+d+'" fill="'+(fill?'rgba(232,89,12,.3)':'none')+'" '+HS+' stroke-width="2.2"/>';}
+function harc(f,r,a0,a1){var o=[],j;for(j=0;j<=16;j++) o.push(f(r,a0+(a1-a0)*j/16)); return hpath(hpt(o));}
+function hcir(r,cx,cy){return hpath(circleD(r,cx,cy),1);}
+var DK='#101820';
+function arw(tx,ty,ux,uy,s){
+  var nx=-uy, ny=ux, L=3.4*s, hl=1.6*s, hw=s, sw=.38*s;
+  function P(b,c){return q3(tx-ux*b+nx*c)+' '+q3(ty-uy*b+ny*c);}
+  return '<path d="M'+P(0,0)+'L'+P(hl,hw)+'L'+P(hl,sw)+'L'+P(L,sw)+'L'+P(L,-sw)+'L'+P(hl,-sw)+'L'+P(hl,-hw)+'Z" fill="#fff" stroke="'+DK+'" stroke-width="1" stroke-linejoin="miter" vector-effect="non-scaling-stroke"/>';
+}
+function xl(p,q){return '<line x1="'+q3(p[0])+'" y1="'+q3(p[1])+'" x2="'+q3(q[0])+'" y2="'+q3(q[1])+'" stroke="'+DK+'" stroke-width="1" vector-effect="non-scaling-stroke"/>';}
+function dmk(a,b,l0,l1,m0,m1,s){
+  var dx=b[0]-a[0], dy=b[1]-a[1], d=Math.hypot(dx,dy)||1, ux=dx/d, uy=dy/d, gp=.25*s;
+  return xl(l0[0],l0[1])+xl(l1[0],l1[1])+arw(m0[0]-ux*gp,m0[1]-uy*gp,ux,uy,s)+arw(m1[0]+ux*gp,m1[1]+uy*gp,-ux,-uy,s);
+}
+function ex(id,e,top,side,t,dy){
+  var s='',j;
+  for(j=4;j>=0;j--) s+='<use href="#'+id+'" transform="translate(0 '+q3(dy+e*j/4)+') scale(1 .55) '+t+'" fill="'+(j?side:top)+'" stroke="#1d3b66" stroke-width=".8"/>';
+  return s;
+}
+function pinS(y,g,ph){
+  var s='',j;
+  for(j=0;j<=4;j++) s+='<circle cx="0" cy="'+q3(y)+'" r="'+q3(g.inp.d/2)+'" transform="translate(0 '+q3(-ph*j/4)+') scale(1 .55)" fill="'+(j===4?'#f2c25a':'#b8892a')+'" stroke="#6b4e10" stroke-width=".7" vector-effect="non-scaling-stroke"/>';
+  return s;
+}
+function icDefs(g){
+  var i=g.inp, sl=$('hSlots').getAttribute('d')||'', lk=$('hLock').getAttribute('d')||'';
+  ICX.sl0='M'+sl.split('M')[1]; ICX.lk0='M'+lk.split('M')[1];
+  var v=' vector-effect="non-scaling-stroke"';
+  return '<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>'+
+    '<path id="icW" fill-rule="evenodd"'+v+' d="'+pathD(g.wp)+(i.b2>0?circleD(i.b2/2):'')+'"/>'+
+    '<path id="icD" fill-rule="evenodd"'+v+' d="'+pathD(g.dp)+(i.b1>0?circleD(i.b1/2):'')+'"/>'+
+    '<circle id="icPl" r="'+q3(g.Rp)+'"'+v+'/>'+
+    '<path id="icSl"'+v+' d="'+sl+'"/></defs></svg>';
+}
+function icon(m,k){
+  if(!k||!G) return '';
+  var g=G, i=g.inp, Rw=g.Rw, Rp=g.Rp, Rl=g.Rl, C=g.C, a=g.a, p=g.p, ri=g.ri, w=g.w, thc=g.thc, be=g.beta;
+  var TOP='#cfe0f3', SIDE='#7f9cc2', PT='#f3e6bd', PS='#cdb76f', fl='', sc='', body, R, ext, ymin, ymax, ph=0, zv=null;
+  if(m==='w'){
+    var rc=ri+w/2, xT=Math.sqrt(Rw*Rw-w*w/4), es=[Math.sin(p),Math.cos(p)], Y=function(q){return [q[0],q[1]*.55];};
+    var WP=function(r,al){return [r*Math.sin(al),r*Math.cos(al)];};
+    var S=function(r,t){return [r*es[0]+t*es[1], r*es[1]-t*es[0]];};
+    R=Rw; ext=.14*R; ymin=-1.08*R; ymax=k==='lcr'?1.1*C:(k==='lcc'?C+.45*R:1.08*R);
+    body=ex('icW',ext,TOP,SIDE,'',0);
+    switch(k){
+      case 'wd': fl=hln([-Rw,0],[Rw,0])+hpath(circleD(Rw)); break;
+      case 'slots': fl='<use href="#icSl" fill="rgba(232,89,12,.35)" '+HS+' stroke-width="1.6"/>'; break;
+      case 'sw':
+        sc=dmk(Y(S(rc,-w/2)),Y(S(rc,w/2)),[Y(S(rc-w*.8,-w/2)),Y(S(xT+w*1.4,-w/2))],[Y(S(rc-w*.8,w/2)),Y(S(xT+w*1.4,w/2))],Y(S((rc+xT)/2,-w/2)),Y(S((rc+xT)/2,w/2)),w*.55); zv=Y(S((rc+xT)/2+w*.4,0)).concat(8*w); break;
+      case 'sl': fl=hln(S(ri,0),S(Rw,0)); break;
+      case 'sbr':
+        var e2=rc+(xT-rc)*.8, c0=S(rc,0);
+        sc='<g transform="scale(1 .55)"><path d="'+circleD(w/2,c0[0],c0[1])+'" fill="none" stroke="'+DK+'" stroke-width="1" vector-effect="non-scaling-stroke"/></g>'+
+          dmk(Y(S(rc,0)),Y(S(rc,w/2)),[Y(S(rc-w*.8,0)),Y(S(xT+w*1.4,0))],[Y(S(rc-w*.8,w/2)),Y(S(xT+w*1.4,w/2))],Y(S((rc+xT)/2,0)),Y(S((rc+xT)/2,w/2)),w*.55); zv=Y(S((rc+xT)/2+w*.4,0)).concat(8*w); break;
+      case 'sbc': fl=hln([0,0],S(rc,0)); break;
+      case 'ssl': fl=hln(S(rc,w/2),S(xT,w/2)); break;
+      case 'ssp': fl=hln([0,0],WP(Rw,p))+hln([0,0],WP(Rw,3*p))+harc(WP,Rw*.5,p,3*p); break;
+      case 'sbd': fl=hpath(circleD(ri))+hln([-ri,0],[ri,0]); break;
+      case 'lcr': fl=hpath(ICX.lk0)+hln([0,C],[0,C-g.Rc]); break;
+      case 'lcm': fl=hln([0,0],[0,C-g.Rc]); break;
+      case 'lcc':
+        sc=dmk([0,0],Y([0,C]),[Y([-.36*Rw,0]),Y([.36*Rw,0])],[Y([-.36*Rw,C]),Y([.36*Rw,C])],Y([.18*Rw,0]),Y([.18*Rw,C]),R*.1)+
+          '<circle cx="0" cy="'+q3(C*.55)+'" r="'+q3(R*.03)+'" fill="none" stroke="'+DK+'" stroke-width="1" vector-effect="non-scaling-stroke"/>'; break;
+      case 'lcw': fl=hln([0,0],WP(Rw,-thc))+hln([0,0],WP(Rw,thc))+harc(WP,Rw*.6,-thc,thc); break;
+      case 'lcch': fl=hln(WP(Rw,-thc),WP(Rw,thc)); break;
+      case 'lcd': fl=hln([0,C-g.Rc],[0,Rw]); break;
+      case 'land': fl=harc(WP,Rw,thc,p-g.delta); break;
+      case 'b2': fl=hcir(Math.max(i.b2/2,Rw*.04)); break;
+      case 'T': sc=hln([Rw,0],[Rw,ext]); break;
+    }
+  } else if(m==='d'){
+    var Pd=function(r,f){return [r*Math.sin(f),-r*Math.cos(f)];}, fl0=C-g.Rwp, pn=circleD(i.d/2,0,-a);
+    R=Math.max(Rp,Rl); ext=.14*R; ph=.22*R; ymin=-1.08*R; ymax=1.08*Rp;
+    if(k==='nr') ymin=-1.1*C;
+    if(k==='pl') ymin=-1.45*R;
+    body=ex('icPl',ext*.7,PT,PS,'',ext)+ex('icD',ext,TOP,SIDE,'',0)+pinS(-a,g,ph);
+    switch(k){
+      case 'ca': fl=hln([0,0],[0,-a]); break;
+      case 'pd': fl=hln([-i.d/2,-a],[i.d/2,-a])+hpath(pn,1); break;
+      case 'pl':
+        var xs=i.d/2, yb=-a*.55, yt=yb-ph;
+        sc=dmk([xs,yb],[xs,yt],[[xs,yb],[xs+.5*R,yb]],[[xs,yt],[xs+.5*R,yt]],[xs+.25*R,yb],[xs+.25*R,yt],R*.1); break;
+      case 'ld': fl=hpath(circleD(Rl))+hln([-Rl,0],[Rl,0]); break;
+      case 'nf': fl=hln([0,0],[0,-fl0]); break;
+      case 'na': fl=hln([0,0],Pd(Rl,-be))+hln([0,0],Pd(Rl,be))+harc(Pd,Rl*.5,-be,be); break;
+      case 'nr':
+        var o=[],j,f,r;
+        for(j=0;j<=16;j++){f=-be+2*be*j/16; r=C*Math.cos(f)-Math.sqrt(Math.max(0,g.Rwp*g.Rwp-C*C*Math.sin(f)*Math.sin(f))); o.push(Pd(r,f));}
+        fl=hpath(hpt(o))+hln([0,-C],[0,-fl0]); break;
+      case 'nw': fl=hln(Pd(Rl,-be),Pd(Rl,be)); break;
+      case 'nd': fl=hln([0,-fl0],[0,-Rl]); break;
+      case 'pp': fl=hpath(pn,1)+hln([0,-Rl],[0,-a]); break;
+      case 'pe': fl=hln([0,0],[0,-a*1.5])+hln([0,0],Pd(a,be))+harc(Pd,a*.6,0,be); break;
+      case 'dt': sc=hln([Rl,0],[Rl,ext]); break;
+      case 'pld': fl=hpath(circleD(Rp))+hln([-Rp,0],[Rp,0]); break;
+      case 'b1': fl=hcir(Math.max(i.b1/2,Rl*.04)); break;
+    }
+  } else {
+    R=Math.max(Rw,Rp); ext=.14*R; ymin=-1.08*Rw; ymax=C+1.08*Rp;
+    body=ex('icPl',ext*.7,PT,PS,'translate(0 '+q3(C)+')',ext)+ex('icW',ext,TOP,SIDE,'',0)+ex('icD',ext,TOP,SIDE,'translate(0 '+q3(C)+')',0)+
+      pinS(C-a,g,.22*Rl);
+    ph=.22*Rl;
+    switch(k){
+      case 'C': fl=hln([0,0],[0,C]); break;
+      case 'ow': fl=hln([-R,Rw>=Rp?0:C],[R,Rw>=Rp?0:C]); break;
+      case 'ol': fl=hln([0,-Rw],[0,C+Rp]); break;
+    }
+  }
+  var x0=-1.1*R, y0=ymin*.55-ph-3, h=(ymax-ymin)*.55+ph+(m==='w'?1.4:2.2)*ext+6;
+  var vb=[x0,y0,2.2*R,h];
+  if(zv){var zw=zv[2], zh=zw*48/68; vb=[zv[0]-zw/2,zv[1]-zh/2,zw,zh];}
+  return '<svg class="ico" viewBox="'+vb.map(q3).join(' ')+'" aria-hidden="true">'+body+'<g transform="scale(1 .55)">'+fl+'</g>'+sc+'</svg>';
 }
 
 /* ---------- export ---------- */
@@ -843,7 +1001,7 @@ function buildSVG(g){
 function buildText(){
   var g=LAST.g, sh=LAST.sh, u=S.unit, lines=['Geneva drive, '+g.n+' slots ('+u+')',''];
   function strip(x){return x.replace(/<[^>]+>/g,'');}
-  [['Driven wheel',sh.wheel],['Driver and lock disc',sh.driver],['Layout',sh.layout],['Motion',sh.motion]].forEach(function(p){
+  [['Driven wheel',sh.wheel],['Driver and lock disc',sh.driver],['Layout',sh.layout],['Motion',sh.motion],['Slot positions (slot centre angle, lock cut angle)',sh.angles]].forEach(function(p){
     lines.push(p[0].toUpperCase());
     p[1].forEach(function(r){lines.push('  '+strip(r.l)+': '+r.v+(r.u?' '+r.u:''));});
     lines.push('');
@@ -869,7 +1027,7 @@ function onModeChange(newMode){
 function onUnitChange(nu){
   if(nu===S.unit) return;
   var f=nu==='in'?1/25.4:25.4;
-  LENFIELDS.forEach(function(id){var v=num(id); if(isFinite(v)) $(id).value=String(parseFloat((v*f).toFixed(nu==='in'?4:3)));});
+  LENFIELDS.forEach(function(id){var v=num(id); if(isFinite(v)) $(id).value=String(parseFloat((v*f).toFixed(nu==='in'?6:4)));});
   S.unit=nu; syncUnitUI(); G=null; update();
 }
 function init(){
