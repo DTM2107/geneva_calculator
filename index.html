@@ -338,10 +338,11 @@ button.pill{cursor:pointer}
 
   <section class="export" aria-label="Export">
     <h3>Take it to CAD or the laser</h3>
-    <p>Copy the outlines as an SVG at true size in your chosen unit. It holds the wheel, the lock disc and the driver plate with its pin hole. Arcs are drawn as short line segments.</p>
+    <p>Copy for MecAgent gives a step-by-step build brief for SolidWorks with every dimension, angle and the start pose of the assembly. Paste it into MecAgent as one prompt. The SVG holds the wheel, the lock disc and the driver plate with its pin hole at true size, with arcs drawn as short line segments.</p>
     <div class="btns">
-      <button type="button" class="btn primary" id="cpSvg">Copy outline SVG</button>
-      <button type="button" class="btn" id="cpTxt">Copy dimensions</button>
+      <button type="button" class="btn" id="cpSvg">Copy outline SVG</button>
+      <button type="button" class="btn primary" id="cpTxt">Copy for MecAgent</button>
+      <button type="button" class="btn" id="cpPlain">Copy plain dimensions</button>
       <span class="msg" id="cpMsg" role="status"></span>
     </div>
     <textarea id="cpBox" readonly hidden aria-label="Exported text"></textarea>
@@ -1008,6 +1009,66 @@ function buildText(){
   });
   return lines.join('\n');
 }
+
+function buildMec(){
+  var g=LAST.g, i=g.inp, u=S.unit, n=g.n, one=u==='mm'?1:1/25.4;
+  var F=function(x){return x.toFixed(u==='mm'?3:4);};
+  var ang=function(x){x=((x+180)%360+360)%360-180; if(x<=-179.995) x=180; if(Math.abs(x)<0.005) x=0; return x.toFixed(2);};
+  var T=i.T, tp=0.6*T, pl=T+one, xT=Math.sqrt(g.Rw*g.Rw-g.w*g.w/4), rc=g.ri+g.w/2;
+  var lc=[], sl=[], k;
+  for(k=0;k<n;k++){ lc.push(ang(-90+360*k/n)); sl.push(ang(-90+180/n+360*k/n)); }
+  var un=u==='mm'?'millimetres':'inches', L=[];
+  function P(t){L.push(t);}
+  P('Build a Geneva drive (external type, one pin, with a lock disc) in SolidWorks. Units: '+un+'. Make two parts and one assembly. Use every dimension exactly as given, do not round, and fully define every sketch.');
+  P('');
+  P('OVERVIEW');
+  P('- Driven wheel with '+n+' slots. It indexes '+(360/n).toFixed(2)+' degrees for each full turn of the driver.');
+  P('- Driver: crank plate carrying one pin and one lock disc. Pin and lock disc are part of the same body as the plate.');
+  P('- Centre distance between the two shafts: C = '+F(g.C)+' '+u);
+  P('');
+  P('COORDINATES');
+  P('- Top plane: X to the right, Y up. Angles are counter-clockwise from +X.');
+  P('- Wheel centre at (0, 0). Driver centre at (0, '+F(-g.C)+'). Both rotate about axes parallel to Z.');
+  P('');
+  P('PART 1: GENEVA WHEEL');
+  P('Sketch on the Top plane, centred on the origin. All cuts go through the full thickness. Thickness T = '+F(T)+' '+u+', extruded upward from the sketch plane (z = 0 to '+F(T)+').');
+  P('1. Circle, diameter '+F(2*g.Rw)+' '+u+' (radius '+F(g.Rw)+'), centred on the origin. Extrude T.');
+  P('2. Centre hole, diameter '+F(i.b2)+' '+u+', through all.');
+  P('3. Lock cuts ('+n+' of them). Each is a circle of radius '+F(g.Rc)+' '+u+' whose centre is '+F(g.C)+' '+u+' from the wheel centre, on the angles below. Cut-extrude through all so the circle removes wheel material. Each cut leaves the wheel '+F(g.C-g.Rc)+' '+u+' from its centre at the deepest point.');
+  P('   Lock cut angles (degrees): '+lc.join(', '));
+  P('4. Slots ('+n+' of them). Each slot has width '+F(g.w)+' '+u+', parallel straight sides, and a fully rounded bottom of radius '+F(g.w/2)+' '+u+'. The bottom arc centre is '+F(rc)+' '+u+' from the wheel centre along the slot axis, so the innermost point of the slot is '+F(g.ri)+' '+u+' from the wheel centre. The slot runs straight out through the rim (sides are about '+F(xT-rc)+' '+u+' long from the arc centre to the rim). Cut-extrude through all.');
+  P('   Slot axis angles (degrees, each one halfway between two lock cuts): '+sl.join(', '));
+  P('');
+  P('PART 2: DRIVER (crank plate, lock disc and pin as one part)');
+  P('Origin at the driver centre. The notch and the pin both face +Y in this part.');
+  P('1. Plate: circle, diameter '+F(2*g.Rp)+' '+u+', centred on the origin. Extrude downward from the Top plane by '+F(tp)+' '+u+' (z = '+F(-tp)+' to 0). The plate thickness is a free choice, 0.6 x T is suggested.');
+  P('2. Lock disc: sketch on the top face of the plate (z = 0). Circle diameter '+F(2*g.Rl)+' '+u+' (radius '+F(g.Rl)+'), centred on the origin. Extrude upward by T = '+F(T)+' '+u+'.');
+  P('3. Notch: a circle of radius '+F(g.Rwp)+' '+u+' centred at (0, '+F(g.C)+'). Cut-extrude it through the lock disc only (not the plate). This makes a concave notch in the +Y side of the disc, '+F(2*g.Rl*Math.sin(g.beta))+' '+u+' wide across its chord, whose floor is '+F(g.C-g.Rwp)+' '+u+' from the origin. The notch spans '+ang(2*g.beta/RAD)+' degrees as seen from the origin, '+ang(-g.beta/RAD)+' to '+ang(g.beta/RAD)+' degrees from +Y.');
+  P('4. Pin: circle diameter '+F(i.d)+' '+u+', centred at (0, '+F(g.a)+'), on the notch centreline. Extrude upward from the plate top face by '+F(pl)+' '+u+' (that is T + '+F(one)+' '+u+').');
+  P('5. Centre hole, diameter '+F(i.b1)+' '+u+', through all (plate and lock disc).');
+  P('');
+  P('ASSEMBLY (start pose)');
+  P('- Wheel: as built, centre at the origin, bottom face at z = 0.');
+  P('- Driver: centre at (0, '+F(-g.C)+'). Rotate it 180 degrees about its centre so the notch and pin point away from the wheel (pin at (0, '+F(-g.C-g.a)+')). The lock cut at '+lc[0]+' degrees then sits concentric with the lock disc, with a radial gap of '+F(i.cl)+' '+u+'.');
+  P('- The wheel bottom face rests on the plate top face (z = 0). Optionally leave a small gap if the parts must spin freely.');
+  P('');
+  P('MOTION');
+  P('- Driver turns about its centre at '+i.rpm+' rpm. The wheel turns about the origin in the opposite direction.');
+  P('- The pin enters a slot when the crank is '+(g.eng/2).toFixed(2)+' degrees either side of the line of centres, and drives the wheel for '+g.eng.toFixed(2)+' degrees of each driver turn. For the other '+g.dwell.toFixed(2)+' degrees the lock disc holds the wheel still.');
+  P('- Each driver turn advances the wheel by exactly '+(360/n).toFixed(2)+' degrees.');
+  P('');
+  P('CHECK VALUES (use these to verify the model)');
+  P('- Wheel outer diameter '+F(2*g.Rw)+' '+u+', lock disc diameter '+F(2*g.Rl)+' '+u+', crank radius '+F(g.a)+' '+u+'.');
+  P('- When the pin first touches a slot its centre is '+F(g.b)+' '+u+' from the wheel centre.');
+  P('- Slot centre-line to lock cut angle: '+(180/n).toFixed(2)+' degrees.');
+  var bad=LAST.ck.filter(function(c){return !c.ok;});
+  if(bad.length){
+    P('');
+    P('WARNINGS (these checks failed in the calculator, tell me before building):');
+    bad.forEach(function(c){P('- '+c.t+': '+c.d);});
+  }
+  return L.join('\n');
+}
 function copyOut(text,label){
   var box=$('cpBox'), msg=$('cpMsg');
   box.hidden=false; box.value=text; box.focus(); box.select();
@@ -1054,7 +1115,8 @@ function init(){
   ['tDims:dims,sDims','tCons:cons,sCons'].forEach(function(s){var p=s.split(':');$(p[0]).addEventListener('change',function(){p[1].split(',').forEach(function(id){var d=$(id); if($(p[0]).checked) d.removeAttribute('hidden'); else d.setAttribute('hidden','');});});});
   $('health').addEventListener('click',function(){var c=$('checks'); if(c) c.scrollIntoView({behavior:reduced?'auto':'smooth',block:'start'});});
   $('cpSvg').addEventListener('click',function(){if(LAST.g) copyOut(buildSVG(LAST.g),'SVG');});
-  $('cpTxt').addEventListener('click',function(){if(LAST.g) copyOut(buildText(),'Dimensions');});
+  $('cpTxt').addEventListener('click',function(){if(LAST.g) copyOut(buildMec(),'MecAgent prompt');});
+  $('cpPlain').addEventListener('click',function(){if(LAST.g) copyOut(buildText(),'Dimensions');});
   if(typeof ResizeObserver!=='undefined'){ try{ var ro=new ResizeObserver(function(){drawDims();}); ro.observe($('stage')); ro.observe($('side')); }catch(e){} }
   else window.addEventListener('resize',drawDims);
   document.querySelectorAll('input[name=view]').forEach(function(r){r.addEventListener('change',function(){setViewMode(r.value);});});
